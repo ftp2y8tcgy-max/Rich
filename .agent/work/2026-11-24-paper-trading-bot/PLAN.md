@@ -54,7 +54,11 @@ Siehe [SPEC.md](SPEC.md): Bot handelt täglich automatisch auf einem Paper-Konto
 - Keine Schlüssel im Repo oder in der Git-Historie (AC-3).
 **Verification:** `python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/trading-bot.yml'))" && ! git log -p --all | grep -En "(PK|AK)[A-Z0-9]{16,}"`
 **Checkpoint after:** human-action
-**Checkpoint reason:** Alpaca-Konto, API-Schlüssel und GitHub-Secrets kann nur der Nutzer anlegen. Außerdem muss der Workflow auf den Default-Branch (Merge), damit `schedule` feuert.
+**Checkpoint reason:** Alpaca-Konto, API-Schlüssel, GitHub-Secrets und Workflow-Schreibrechte kann nur der Nutzer anlegen.
+**Status:** complete
+**Evidence:** `.github/workflows/trading-bot.yml` (Mo–Fr 15:37 UTC + manuell, Tests vor Lauf, committet nur `bot/state.json`/`REPORT.md`), `EINRICHTUNG.md`, `README.md`; YAML parst, Schlüssel-Suche in der Historie leer, 22 Tests OK. Versehentlich getrackte `__pycache__` aus dem Index entfernt.
+**Risks / next:** Checkpoint human-action.
+**Plan correction:** Kein Merge nötig: `claude/lucid-archimedes-729smm` ist der einzige und damit Default-Branch (GitHub-Branchliste 2026-11-24).
 
 ### Slice 4: Erste echte Läufe
 

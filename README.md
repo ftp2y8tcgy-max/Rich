@@ -1,5 +1,18 @@
 # Rich
 
+## Test-Trading-Bot (Spielgeld)
+
+Ein Bot handelt jeden US-Börsentag automatisch auf einem Alpaca-**Paper**-Konto mit 10 € und vergleicht sich mit „S&P-500-ETF kaufen und halten“. Kein echtes Geld; die Echtgeld-Adresse von Alpaca steht nirgends im Code.
+
+- Stand: [REPORT.md](REPORT.md) (wird nach jedem Lauf aktualisiert)
+- Einmalige Einrichtung: [EINRICHTUNG.md](EINRICHTUNG.md)
+- Strategie: Am ersten Handelstag jedes Monats SPY halten, wenn der letzte Schlusskurs über dem 200-Tage-Durchschnitt liegt, sonst Bargeld. Order nur bei Wechsel. Gebühr geschätzt 1 € pro Order.
+- Code: `bot/`, Tests: `python3 -m unittest discover -s tests -v`, Zeitplan: `.github/workflows/trading-bot.yml`
+
+Eine Gewinnzusage gibt es nicht. Der Test zeigt, ob die Strategie nach Gebühren besser ist als einfaches Halten.
+
+## Werkzeuge
+
 Arbeitsumgebung für Claude Code mit zwei installierten Werkzeugen.
 
 ## Installiert
