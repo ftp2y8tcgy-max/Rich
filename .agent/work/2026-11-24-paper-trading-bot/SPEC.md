@@ -37,7 +37,7 @@ Eine Gewinnzusage ist ausgeschlossen. Der Bot misst, ob eine Strategie etwas tau
 3. **Paper-Konto:** Orders gehen ausschließlich an die Spielgeld-Schnittstelle des Brokers.
 4. **Bericht:** Eine Datei im Repo, nach jedem Lauf aktualisiert, auf Deutsch, am Handy lesbar. Inhalt seit Teststart:
    - Depotwert des Bots und eines Vergleichsdepots, das mit demselben Startkapital am Starttag den Index-ETF kauft und hält.
-   - Beide nach geschätzten Gebühren pro Order.
+   - Beide nach geschätzten Gebühren pro Order, die Gebührensumme als eigene Zeile.
    - Anzahl Orders, größter Zwischenverlust (Max Drawdown), Datum des letzten erfolgreichen Laufs.
 5. **Einrichtungsanleitung:** Schritt für Schritt, was der Nutzer einmalig tun muss: Paper-Konto anlegen, API-Schlüssel erzeugen und sicher hinterlegen. Jeder Klick und jedes Feld ist benannt.
 6. **Fehler sichtbar:** Schlägt ein Lauf fehl, ist das ohne Logdateien erkennbar. Der Bericht zeigt dann ein veraltetes Datum des letzten Laufs, und der Scheduler meldet den Fehler über seine Standard-Benachrichtigung.
@@ -47,7 +47,8 @@ Eine Gewinnzusage ist ausgeschlossen. Der Bot misst, ob eine Strategie etwas tau
 - **Kein echtes Geld:** Im Code gibt es keinen Pfad zur Echtgeld-Schnittstelle. Die Paper-Adresse ist fest verdrahtet, nicht per Einstellung umschaltbar.
 - **Geheimnisse:** API-Schlüssel stehen nie im Repo, in Logs oder im Bericht. Sie liegen als Secrets des Schedulers.
 - **Keine laufenden Kosten:** Broker-Paper-Konto, Kursdaten und Scheduler sind kostenlos nutzbar.
-- **Broker:** Kostenloses Paper Trading per API und Kontoeröffnung aus Deutschland möglich. Die Wahl trifft die Planung; Kandidat ist Alpaca (US-Aktien und ETFs). Die Verfügbarkeit für deutsche Nutzer prüft die Planung vor dem Bau.
+- **Broker:** Kostenloses Paper Trading per API, Bruchstück-Aktien (Orders unter dem Preis einer ganzen Aktie) und Kontoeröffnung aus Deutschland möglich. Die Wahl trifft die Planung; Kandidat ist Alpaca (US-Aktien und ETFs). Die Verfügbarkeit für deutsche Nutzer prüft die Planung vor dem Bau.
+- **Startkapital 10 €:** Vom Nutzer festgelegt. Der Bot rechnet nur mit diesen 10 € (in Dollar zum festen Kurs des Teststarts), unabhängig davon, wie viel Spielgeld das Paper-Konto des Brokers anzeigt. Das Vergleichsdepot startet mit demselben Betrag.
 - **Reproduzierbar:** Dieselben Kursdaten ergeben dieselben Entscheidungen. Kein Zufall und kein Sprachmodell in der Handelsentscheidung.
 
 ## Risks
@@ -55,6 +56,7 @@ Eine Gewinnzusage ist ausgeschlossen. Der Bot misst, ob eine Strategie etwas tau
 - **Broker nicht verfügbar** oder Bedingungen geändert: Die Planung prüft das zuerst; ohne passenden Broker stoppt die Änderung vor dem Bau.
 - **Scheduler fällt still aus:** Abgedeckt durch das Datum des letzten Laufs im Bericht und die Fehlermeldung des Schedulers.
 - **Schönfärberei im Bericht:** Paper-Fills sind idealisiert und Alpaca nimmt keine Gebühren. Deshalb rechnet der Bericht Gebühren pro Order ein und nennt das Paper-Trading als Einschränkung.
+- **Gebühren fressen das Kapital:** Bei 10 € kostet jede Order mit 1 € Gebühr 10 % des Depots, das Vergleichsdepot zahlt sie nur einmal. Die Planung wählt deshalb eine Strategie mit wenigen Orders. Der Bericht zeigt die Gebühren getrennt, damit sichtbar ist, ob die Strategie oder die Gebühren das Ergebnis bestimmen.
 - **Zu kurze Testphase täuscht:** Wenige Wochen sagen wenig über eine Strategie. Der Bericht zeigt die Testdauer neben dem Ergebnis.
 
 ## Acceptance Criteria
@@ -88,6 +90,5 @@ Eine Gewinnzusage ist ausgeschlossen. Der Bot misst, ob eine Strategie etwas tau
 
 Annahmen, die der Nutzer jetzt ablehnen kann:
 
-- **Startkapital im Spielgeld-Depot:** 10.000 US-Dollar.
 - **Geschätzte Gebühr pro Order:** 1 €, typisch für deutsche Neobroker. Im Bericht in Dollar umgerechnet zum festen Kurs des Teststarts.
 - **Vergleichsindex:** ein breiter US-Index-ETF beim selben Broker, z. B. auf den S&P 500. Grund: Er ist über die Paper-Schnittstelle handelbar und liefert Kurse aus derselben Quelle.
