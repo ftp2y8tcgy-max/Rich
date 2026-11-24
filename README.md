@@ -6,6 +6,7 @@ Ein Bot handelt jeden US-Börsentag automatisch auf einem Alpaca-**Paper**-Konto
 
 - Stand: [REPORT.md](REPORT.md) (wird nach jedem Lauf aktualisiert)
 - Einmalige Einrichtung: [EINRICHTUNG.md](EINRICHTUNG.md)
+- Für das eigentliche Geld: [SPARPLAN.md](SPARPLAN.md)
 - Strategie: Am ersten Handelstag jedes Monats SPY halten, wenn der letzte Schlusskurs über dem 200-Tage-Durchschnitt liegt, sonst Bargeld. Order nur bei Wechsel. Gebühr geschätzt 1 € pro Order.
 - Code: `bot/`, Tests: `python3 -m unittest discover -s tests -v`, Zeitplan: `.github/workflows/trading-bot.yml`
 
