@@ -25,6 +25,9 @@ Siehe [SPEC.md](SPEC.md): Bot handelt täglich automatisch auf einem Paper-Konto
 - Depotwert, Gebührensumme, Max Drawdown und Vergleichsdepot stimmen mit von Hand gerechneten Werten überein (AC-1).
 - `REPORT.md` enthält alle Felder aus Required Outcome 4, die Testdauer und den Spielgeld-/keine-Garantie-Hinweis (AC-5).
 **Verification:** `python3 -m unittest tests.test_core -v`
+**Status:** complete
+**Evidence:** `bot/core.py`, `bot/report.py`, `tests/test_core.py`; 13 Tests OK, Werte von Hand gerechnet (1 € = 1,10 $, Kauf 9,90 $, Verkauf 120 $ → Cash 10,78 $, Gebühren 2,20 $).
+**Risks / next:** none.
 
 ### Slice 2: Alpaca-Anbindung und Tageslauf
 
