@@ -39,6 +39,9 @@ Siehe [SPEC.md](SPEC.md): Bot handelt täglich automatisch auf einem Paper-Konto
 - Mit einem Fake-Client: geschlossener Markt → kein Handel, Bericht mit Lauf-Datum; Signalwechsel → genau eine `notional`-Order, Ausführungspreis landet im Buch; erster Lauf → Teststart, EZB-Kurs fixiert, Vergleichsdepot angelegt.
 - Schlüssel nur aus Umgebungsvariablen `ALPACA_KEY_ID` / `ALPACA_SECRET_KEY`; fehlen sie, bricht der Lauf mit klarer Meldung ab, ohne sie auszugeben.
 **Verification:** `python3 -m unittest discover -s tests -v && ! grep -rn "api.alpaca.markets" bot/ | grep -v paper-api`
+**Status:** complete
+**Evidence:** `bot/alpaca.py`, `bot/run.py`, `tests/test_run.py`, `.gitignore`; 22 Tests OK; grep findet keine Echtgeld-Adresse. Fake-Client deckt ab: Teststart, Kauf, geschlossener Markt, kein Handel mitten im Monat, Verkauf im Folgemonat, nicht ausgeführte Order mit erneutem Versuch.
+**Risks / next:** Alpaca und der Wechselkurs-Dienst sind aus dieser Sandbox gesperrt; echte Antwortformate werden erst in Slice 4 auf GitHub bestätigt.
 
 ### Slice 3: Workflow und Einrichtungsanleitung
 
