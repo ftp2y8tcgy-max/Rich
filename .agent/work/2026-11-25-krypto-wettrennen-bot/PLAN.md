@@ -37,6 +37,9 @@
 **Verification:** `python3 -m unittest discover -s tests_krypto -v` (Tests mit vorgegebenen LLM-Antworten, ohne Netz)
 **Depends on:** Slice 1
 **Touches:** `krypto/ki.py`, `tests_krypto/test_ki.py`
+**Status:** complete
+**Evidence:** neu `krypto/ki.py`, `tests_krypto/test_ki.py`; `python3 -m unittest discover -s tests_krypto -v` → 22 Tests OK (gültige Kauf-/Verkauf-/Halten-Antworten, 4 ungültige Antworten und 4 Ausfallarten → halten mit Zähler, fehlender Schlüssel → halten, Schlüssel nicht im Depotzustand).
+**Risks / next:** Modellname `llama-3.3-70b-versatile` ist Groq-Standard; über `LLM_MODEL` umstellbar, falls Groq ihn abschafft.
 
 ### Slice 3: Stündlicher Lauf und Bericht
 
