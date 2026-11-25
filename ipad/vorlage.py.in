@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""Day-Trader-Rennen – alles in einer Datei, für die Python-App auf dem iPad.
+
+25 Bots starten mit je 10 € Spielgeld und handeln US-Aktien nach den Regeln aus
+day-trader-skill (Ausbruch aus der Eröffnungsspanne, Stop und Ziel vorab, glatt um 15:55).
+Ziel: 1.000 €. Spielgeld, keine Anlageberatung, nichts geht an einen Broker.
+
+So startest du es
+  Pythonista 3 oder Pyto: Datei öffnen, ▶ drücken. Das Dashboard öffnet sich in der App.
+  a-Shell:                python3 day_trader_rennen.py  → dann die angezeigte Adresse in Safari öffnen
+                          (iOS hält a-Shell im Hintergrund nach kurzer Zeit an: zwischendurch zurückwechseln)
+  Mac/PC:                 python3 day_trader_rennen.py  → öffnet den Browser
+
+Optionen (nur in Terminals): --offline  --aktien TSLA,NVDA,AMD,META,PLTR  --tempo 40  --port 8765  --kein-browser
+
+Nur Standardbibliothek, Python 3.8 oder neuer. Erzeugt aus dem Repo mit ipad/bauen.py.
+"""
+
+import argparse
+import base64
+import datetime
+import gzip
+import itertools
+import json
+import math
+import os
+import random
+import socket
+import threading
+import time
+import types
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+import webbrowser
+from collections import deque
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+
+# =====================================================================================
+# Teil 1 – Auszug aus der Time Machine von day-trader-skill (unverändert übernommen)
+# https://github.com/Jakeschincariol/day-trader-skill, trader-timemachine/timemachine.py
+#
+#LIZENZ#
+# =====================================================================================
+
+#TIME_MACHINE#
+
+
+tm = types.SimpleNamespace(**{n: globals()[n] for n in (
+    "TMError", "PAUSE", "SESSION_BARS", "OPEN_MIN", "fetch_chart", "chart_result", "parse_bars",
+    "split_sessions", "full_sessions", "build_pool", "opening_range", "rule_stop")})
+
+FLAT_SLOT = (15 * 60 + 55 - OPEN_MIN) // 5 - 1     # 76: Kerze 15:50–15:55, danach glatt (trader-exit)
+LETZTER_EINSTIEG = (15 * 60 + 30 - OPEN_MIN) // 5  # 72: keine Einstiege nach 15:30 (trader-entry)
+
+
+# =====================================================================================
+# Teil 2 – Kursdaten: Yahoo (60 Tage, 5 Minuten), sonst die eingebauten echten TSLA-Kerzen
+# (TSLA bis 16.10.2026 aus den Testdaten von day-trader-skill, MIT)
+# =====================================================================================
+
+TSLA_GZ_B64 = (
+#TSLA_DATEN#
+)
+
+CACHE_STUNDEN = 12
+
+
+def _cache_ordner():
+    for basis in (os.path.dirname(os.path.abspath(__file__)), os.path.expanduser("~"), os.getcwd()):
+        ordner = os.path.join(basis, "day_trader_cache")
+        try:
+            os.makedirs(ordner, exist_ok=True)
+            return ordner
+        except OSError:
+            continue
+    return None
+
+
+def rohdaten(sym, offline=False, log=print):
+    """(Yahoo-JSON-Text, Quelle, Symbol der Daten)."""
+    sym = sym.upper()
+    ordner = _cache_ordner()
+    pfad = os.path.join(ordner, f"{sym}-60d5m.json.gz") if ordner else None
+    if pfad and os.path.exists(pfad) and (offline or time.time() - os.path.getmtime(pfad) < CACHE_STUNDEN * 3600):
+        with gzip.open(pfad, "rt", encoding="utf-8") as f:
+            return f.read(), "Cache", sym
+    if not offline:
+        try:
+            text = tm.fetch_chart(sym)
+            tm.chart_result(text, sym)
+            if pfad:
+                try:
+                    with gzip.open(pfad, "wt", encoding="utf-8") as f:
+                        f.write(text)
+                except OSError:
+                    pass
+            time.sleep(tm.PAUSE)
+            return text, "Yahoo", sym
+        except tm.TMError as fehler:
+            log(f"{sym}: Yahoo nicht erreichbar ({fehler})")
+    if pfad and os.path.exists(pfad):
+        with gzip.open(pfad, "rt", encoding="utf-8") as f:
+            return f.read(), "alter Cache", sym
+    log(f"{sym}: nehme die eingebauten TSLA-Kerzen")
+    return gzip.decompress(base64.b64decode(TSLA_GZ_B64)).decode("utf-8"), "eingebaut", "TSLA"
+
+
+def sitzungen(sym, offline=False, log=print):
+    text, quelle, daten_sym = rohdaten(sym, offline, log)
+    ergebnis = tm.chart_result(text, daten_sym)
+    jetzt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    _, kerzen, _ = tm.parse_bars(ergebnis, jetzt)
+    voll, _ = tm.full_sessions(tm.split_sessions(kerzen), before="9999-12-31")
+    return voll, quelle, daten_sym
+
+
+# =====================================================================================
+# Teil 3 – Engine: 25 Bots, eine gemeinsame Uhr
+# =====================================================================================
+
+#ENGINE#
+
+# =====================================================================================
+# Teil 4 – Webserver (nur Standardbibliothek)
+# =====================================================================================
+
+#SERVER#
+
+# =====================================================================================
+# Teil 5 – Oberfläche (HTML, CSS, JavaScript)
+# =====================================================================================
+
+#STATIC#
+
+DATEIEN = {
+    "index.html": ("text/html", INDEX_HTML),
+    "app.css": ("text/css", APP_CSS),
+    "app.js": ("application/javascript", APP_JS),
+}
+
+
+# =====================================================================================
+# Teil 6 – Start und Anzeige (Pythonista, Pyto, sonst Browser)
+# =====================================================================================
+
+def freier_server(rennen, host, port):
+    for p in [port] + list(range(port + 1, port + 20)) + [0]:
+        try:
+            return starten(rennen, host, p)
+        except OSError:
+            continue
+    raise SystemExit("kein freier Port gefunden")
+
+
+def in_app_anzeigen(url):
+    """Zeigt das Dashboard in der App. True = Fenster wurde wieder geschlossen, False = keine App-Ansicht."""
+    try:
+        import ui  # Pythonista
+    except ImportError:
+        ui = None
+    if ui is not None:
+        ansicht = ui.WebView(name="Day-Trader-Rennen")
+        ansicht.background_color = "#060608"
+        ansicht.load_url(url)
+        ansicht.present("fullscreen")
+        ansicht.wait_modal()
+        return True
+    try:
+        import pyto_ui  # Pyto
+    except ImportError:
+        pyto_ui = None
+    if pyto_ui is not None:
+        ansicht = pyto_ui.WebView()
+        ansicht.load_url(url)
+        pyto_ui.show_view(ansicht, pyto_ui.PRESENTATION_MODE_FULLSCREEN)  # kehrt beim Schließen zurück
+        return True
+    return False
+
+
+def lan_adresse():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 9))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def main():
+    p = argparse.ArgumentParser(description="Day-Trader-Rennen: 25 Bots × 10 € → 1.000 €")
+    p.add_argument("--aktien", default=",".join(STANDARD_AKTIEN))
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--offline", action="store_true")
+    p.add_argument("--tempo", type=float, default=40)
+    p.add_argument("--kein-browser", action="store_true")
+    p.add_argument("--wlan", action="store_true", help="auch für andere Geräte im WLAN erreichbar")
+    a, _ = p.parse_known_args()  # Pythonista und Pyto übergeben manchmal eigene Argumente
+
+    aktien = [s.strip().upper() for s in a.aktien.split(",") if s.strip()]
+    if len(aktien) != 5:
+        raise SystemExit("--aktien braucht genau 5 Ticker")
+    print("Lade 60 Tage Fünf-Minuten-Kerzen …")
+    maerkte = []
+    for sym in aktien:
+        tage, quelle, daten_sym = sitzungen(sym, offline=a.offline)
+        print(f"  {sym if daten_sym == sym else sym + '→' + daten_sym:10} {len(tage):3} Handelstage ({quelle})")
+        maerkte.append(Markt(daten_sym, tage, quelle))
+
+    rennen = Rennen(maerkte)
+    rennen.steuern("tempo", wert=a.tempo)
+    rennen.starten_thread()
+    rennen.steuern("start")
+
+    srv = freier_server(rennen, "0.0.0.0" if a.wlan else "127.0.0.1", a.port)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True, name="Webserver").start()
+    url = f"http://127.0.0.1:{port}/"
+    print(f"\nDashboard: {url}")
+    if a.wlan and lan_adresse():
+        print(f"Im WLAN:   http://{lan_adresse()}:{port}/")
+    try:
+        if not a.kein_browser and in_app_anzeigen(url):
+            return
+        if not a.kein_browser:
+            webbrowser.open(url)
+        print("Läuft. Beenden mit Strg+C oder dem Stopp-Knopf der App.")
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        rennen.beenden()
+        srv.shutdown()
+        srv.server_close()
+        print("Beendet.")
+
+
+if __name__ == "__main__":
+    main()

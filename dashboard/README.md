@@ -6,7 +6,12 @@ Die Oberfläche läuft im Browser, auch auf dem iPad.
 
 ![Dashboard](bilder/dashboard.png)
 
+## Auf dem iPad ohne Rechner
+
+Eine einzige Datei: [`ipad/day_trader_rennen.py`](../ipad/day_trader_rennen.py) (enthält Engine, Oberfläche und die TSLA-Kerzen). In Pythonista 3 oder Pyto öffnen und ▶ drücken; das Dashboard erscheint in der App. Neu bauen nach Änderungen am Dashboard: `python3 ipad/bauen.py`.
+
 ## Starten
+
 
 Python 3.8 oder neuer, nichts zu installieren.
 

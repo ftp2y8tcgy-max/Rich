@@ -590,7 +590,16 @@ function kontoChart(d) {
 /* ---------------- Ereignisse der Bedienelemente ---------------- */
 document.querySelectorAll(".steuerung .knopf").forEach((b) => b.addEventListener("click", () => {
   const a = b.dataset.aktion;
-  if (a === "reset" && !confirm("Alle 25 Bots auf 10 € zurücksetzen und ein neues Rennen starten?")) return;
+  if (a === "reset") {
+    // zweimal tippen statt confirm(): eingebettete Browser (Pythonista, Pyto) zeigen keine Dialoge
+    if (!b.dataset.scharf) {
+      b.dataset.scharf = "1";
+      toast("Nochmal auf Reset tippen: alle Bots zurück auf 10 €");
+      setTimeout(() => delete b.dataset.scharf, 3000);
+      return;
+    }
+    delete b.dataset.scharf;
+  }
   steuern(a);
 }));
 $("tempo").addEventListener("input", (e) => { $("tempo-wert").textContent = `${Math.round(10 ** ((e.target.value / 100) * 3))}/s`; });
