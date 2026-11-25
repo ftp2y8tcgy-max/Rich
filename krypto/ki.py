@@ -70,10 +70,14 @@ def auswerten(antwort):
     return True, ziel, (b.group(1).strip()[:300] if b else "")
 
 
+class KeinSchluessel(Exception):
+    pass
+
+
 def http_client(nachrichten):
     schluessel = os.environ.get("LLM_API_KEY")
     if not schluessel:
-        raise RuntimeError("kein LLM_API_KEY gesetzt")
+        raise KeinSchluessel()
     basis = os.environ.get("LLM_BASE_URL") or STANDARD_BASIS
     modell = os.environ.get("LLM_MODEL") or STANDARD_MODELL
     daten = json.dumps({"model": modell, "messages": nachrichten, "temperature": 0}).encode()
@@ -93,7 +97,7 @@ def entscheiden(kurse, depot, zeit, client=http_client):
         antwort = client(nachrichten)
     except Exception as fehler:  # Netz, HTTP, Kontingent, fehlender Schlüssel: alles heißt halten
         depot["ki_ausfaelle"] += 1
-        depot["letzte_entscheidung"] = {"zeit": zeit, "entscheidung": "halten", "begruendung": f"Ausfall: {type(fehler).__name__}"}
+        depot["letzte_entscheidung"] = {"zeit": zeit, "entscheidung": "halten", "begruendung": "Ausfall: kein LLM_API_KEY hinterlegt" if isinstance(fehler, KeinSchluessel) else f"Ausfall: {type(fehler).__name__}"}
         return HALTEN
     gueltig, ziel, begruendung = auswerten(antwort)
     if not gueltig:

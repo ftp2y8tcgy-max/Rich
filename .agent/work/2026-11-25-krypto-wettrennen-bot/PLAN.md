@@ -52,6 +52,9 @@
 **Verification:** `python3 -m unittest discover -s tests_krypto -v && grep -rniE "AddOrder|/private/|api_secret" krypto/ ; test $? -eq 1`
 **Depends on:** Slice 2
 **Touches:** `krypto/kurse.py`, `krypto/lauf.py`, `krypto/bericht.py`, `tests_krypto/`
+**Status:** complete
+**Evidence:** neu `krypto/kurse.py`, `krypto/lauf.py`, `krypto/bericht.py`, `tests_krypto/test_lauf.py`; kleine Ergänzung in `krypto/ki.py` (fehlender Schlüssel erscheint im Bericht als „kein LLM_API_KEY hinterlegt“). `python3 -m unittest discover -s tests_krypto -v` → 30 Tests OK (zwei Läufe setzen auf Zustand auf, Bericht enthält alle Angaben aus Outcome 6, Ziel/Pleite im Bericht, Kursfehler → Exit 1 ohne Dateiänderung, Kraken-Antwort-Parsing); Order-Endpunkt-Suche leer. Probelauf mit Beispielkursen erzeugt lesbaren Bericht.
+**Risks / next:** Kraken ist aus diesem Container gesperrt; der echte Abruf wird erst in Slice 5 belegt.
 
 ### Slice 4: Zeitplan, Daten-Branch, Einrichtungsanleitung
 
