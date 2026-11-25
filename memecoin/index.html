@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08080a">
+<title>Memecoin-Bot</title>
+<style>
+:root {
+  --bg: #08080a; --karte: #16140f; --karte2: #1f1b15; --rand: rgba(255, 196, 110, .14); --gold: #f4b740; --gold2: #ffd77a;
+  --orange: #ff8a3d; --gruen: #3ddc97; --rot: #ff5f5f; --lila: #a98bff; --blau: #5aa9ff; --text: #f4efe7; --grau: #a39b8f; --schwach: #6d675f;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(900px 500px at 80% -10%, rgba(255,138,61,.14), transparent 60%), var(--bg); color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+main { max-width: 1200px; margin: 0 auto; padding: 16px 16px 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.spalte { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.karte { background: var(--karte); border: 1px solid var(--rand); border-radius: 20px; padding: 16px; min-width: 0; }
+h1, h2, h3, p { margin: 0; }
+h2 { font-size: 15px; font-weight: 650; }
+small, .grau { color: var(--grau); }
+.kopf-zeile { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.knopf { border: 1px solid var(--rand); background: var(--karte2); padding: 10px 16px; border-radius: 999px; font-weight: 650; }
+.knopf.gold { background: linear-gradient(135deg, var(--orange), var(--gold)); color: #1b1206; border: 0; }
+.knopf:disabled { opacity: .4; }
+/* Saldo-Karte wie im Video, aber ehrlich */
+.saldo { background: radial-gradient(120% 140% at 85% 20%, rgba(255,138,61,.25), transparent 55%), linear-gradient(160deg, #241c12, #0f0d0a); position: relative; overflow: hidden; }
+.saldo .live { position: absolute; right: 16px; top: 16px; font-size: 12px; color: var(--gruen); display: flex; align-items: center; gap: 6px; }
+.saldo .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.saldo .live.aus { color: var(--grau); }
+.titel { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+.chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--orange); color: #1b1206; margin-top: 4px; letter-spacing: .04em; }
+.betrag { font-size: 48px; font-weight: 800; letter-spacing: -.03em; margin: 14px 0 2px; font-variant-numeric: tabular-nums; }
+.auf { color: var(--gruen); } .ab { color: var(--rot); }
+.zeile { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--grau); }
+.faktor { background: #fff; color: #111; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-family: var(--mono); font-size: 13px; }
+.ziel-balken { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); margin-top: 12px; overflow: hidden; }
+.ziel-balken i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--orange), var(--gold2)); transition: width .4s; }
+.knoepfe { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+/* Agenten */
+.stapel { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: rgba(255,255,255,.08); margin: 4px 0 10px; }
+.stapel i { display: block; height: 100%; }
+.agenten { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.agent { background: var(--karte2); border-radius: 14px; padding: 10px 12px; border-left: 3px solid var(--f); min-width: 0; }
+.agent b { font-size: 14px; } .agent .w { font-family: var(--mono); font-weight: 700; }
+.agent p { font-size: 11px; color: var(--schwach); margin-top: 2px; }
+.agent .z { display: flex; justify-content: space-between; gap: 6px; margin-top: 4px; font-size: 12px; }
+/* Positionen und Trades */
+.liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pos { background: var(--karte2); border-radius: 12px; padding: 9px 10px; border-left: 3px solid var(--f, var(--gold)); min-width: 0; }
+.pos .k { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; min-width: 0; }
+.pos .k span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos img, .terminal img { width: 18px; height: 18px; border-radius: 50%; flex: none; background: #333; }
+.pos .p { font-size: 20px; font-weight: 800; font-family: var(--mono); margin-top: 2px; }
+.pos .d { font-size: 11px; color: var(--grau); }
+.pos.rot { background: rgba(255,95,95,.08); }
+.leer { color: var(--schwach); font-size: 13px; padding: 6px 0; grid-column: 1 / -1; }
+/* Terminal */
+.terminal { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+.blase { align-self: flex-start; background: var(--karte2); border-radius: 12px; padding: 6px 10px; font-size: 13px; max-width: 100%; border-left: 3px solid var(--f, var(--schwach)); }
+.blase.kauf { --f: var(--gruen); } .blase.verkauf { --f: var(--gold); } .blase.skip { --f: var(--rot); color: var(--grau); } .blase.info { --f: var(--blau); }
+.blase time { color: var(--schwach); font-family: var(--mono); font-size: 11px; margin-right: 6px; }
+/* Ehrlichkeit */
+.werte { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.werte div { background: var(--karte2); border-radius: 12px; padding: 8px 10px; }
+.werte small { display: block; font-size: 11px; }
+.werte b { font-family: var(--mono); font-size: 16px; }
+.hinweis { font-size: 12px; color: var(--grau); margin-top: 10px; }
+details summary { cursor: pointer; font-weight: 650; }
+.einst { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.einst label { font-size: 12px; color: var(--grau); display: flex; flex-direction: column; gap: 4px; }
+.einst input { background: var(--karte2); color: var(--text); border: 1px solid var(--rand); border-radius: 10px; padding: 8px; font: inherit; }
+footer { grid-column: 1 / -1; font-size: 12px; color: var(--schwach); text-align: center; padding-top: 6px; }
+footer a { color: var(--grau); }
+@media (max-width: 820px) { main { grid-template-columns: minmax(0, 1fr); } .betrag { font-size: 42px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="spalte">
+    <section class="karte saldo">
+      <span class="live aus" id="live">pausiert</span>
+      <div class="titel">Memecoin-Bot</div>
+      <span class="chip">PAPIERGELD · SOLANA</span>
+      <div class="grau" style="margin-top:14px;font-size:12px">KONTOSTAND (Verkaufswert nach Kosten)</div>
+      <div class="betrag" id="betrag">$50.00</div>
+      <div class="zeile"><span id="aenderung">±$0</span><span id="sol-wert">–</span></div>
+      <div class="zeile" style="margin-top:8px"><span class="faktor" id="faktor">1.00×</span><span id="trades-kurz">0 Trades</span><span id="ziel-text">Ziel 20× · $1,000</span></div>
+      <div class="ziel-balken"><i id="ziel-balken"></i></div>
+      <div class="knoepfe">
+        <button class="knopf gold" id="start">▶ Starten</button>
+        <button class="knopf" id="wach" title="Bildschirm bleibt an, damit der Bot weiterläuft">☀︎ Wach halten</button>
+        <button class="knopf" id="reset">↺ Neu</button>
+      </div>
+      <p class="hinweis" id="status-text">Der Bot läuft nur, solange diese Seite offen und sichtbar ist. Beim Zurückkommen macht er dort weiter.</p>
+    </section>
+
+    <section class="karte">
+      <div class="kopf-zeile"><h2>Gewinn je Agent</h2><small id="agent-info">4 Agenten</small></div>
+      <div class="stapel" id="stapel"></div>
+      <div class="agenten" id="agenten"></div>
+    </section>
+
+    <section class="karte">
+      <div class="kopf-zeile"><h2>Offene Positionen</h2><small id="offen-zahl">0</small></div>
+      <div class="liste" id="offen"></div>
+    </section>
+
+    <section class="karte">
+      <div class="kopf-zeile"><h2>Ehrliche Bilanz</h2><small>alles nach Kosten</small></div>
+      <div class="werte" id="bilanz"></div>
+      <p class="hinweis">Gerechnet wird mit echten Live-Kursen von DexScreener und dem Rug-Check von RugCheck, aber mit Papiergeld. Kosten je Trade: DEX-Gebühr (pump.fun 1,25 %, sonst 0,25–1 %), Preiseinfluss nach Liquidität, 1 % Verzögerung und $0.05 Netzwerk- und Priority-Gebühr je Transaktion. Bei kleinen Beträgen fressen allein diese Fixkosten mehrere Prozent pro Trade. Echte Bots werden zusätzlich von schnelleren Bots ausgekauft.</p>
+    </section>
+  </div>
+
+  <div class="spalte">
+    <section class="karte">
+      <div class="kopf-zeile"><h2>Bot-Terminal</h2><small id="beobachtet">0 Coins beobachtet</small></div>
+      <div class="terminal" id="terminal"></div>
+    </section>
+
+    <section class="karte">
+      <div class="kopf-zeile"><h2>Geschlossene Trades</h2><small id="geschlossen-zahl">0</small></div>
+      <div class="liste" id="geschlossen"></div>
+    </section>
+
+    <section class="karte">
+      <details>
+        <summary>Einstellungen</summary>
+        <div class="einst">
+          <label>Startkapital ($)<input id="e-start" type="number" min="5" step="5" value="50"></label>
+          <label>Ziel (Faktor)<input id="e-ziel" type="number" min="2" step="1" value="20"></label>
+          <label>Einsatz je Trade (% vom Agenten-Geld)<input id="e-einsatz" type="number" min="5" max="100" step="5" value="25"></label>
+          <label>Netzwerk-/Priority-Gebühr je Transaktion ($)<input id="e-netz" type="number" min="0" step="0.01" value="0.05"></label>
+        </div>
+        <p class="hinweis">Änderungen gelten ab „↺ Neu“. Die Regeln der Agenten stehen unten im Quelltext der Seite (AGENTEN).</p>
+      </details>
+    </section>
+  </div>
+
+  <footer>Kein echtes Geld, keine Anlageberatung. Daten: <a href="https://dexscreener.com" target="_blank" rel="noopener">DexScreener</a>, <a href="https://rugcheck.xyz" target="_blank" rel="noopener">RugCheck</a>. Gib niemals deine Seed-Phrase oder deinen Private Key an einen Bot.</footer>
+</main>
+
+<script id="engine">
+/* ================= Engine (ohne DOM; im Test unter Node lauffähig) ================= */
+(function (global) {
+  "use strict";
+  const SOL_MINT = "So11111111111111111111111111111111111111112";
+
+  /* Vier Agenten mit eigenen Regeln. Jeder bekommt ein Viertel des Startkapitals. */
+  const AGENTEN = [
+    { id: "vorsicht", name: "Vorsichtig", farbe: "#3ddc97", text: "nur DEX-Paare mit viel Liquidität, strenger Rug-Check",
+      curve: false, minLiq: 50000, alterMin: 30, alterMax: 24 * 60, minM5: 3, maxM5: 40, minH1: 5, minKaeufe5: 40, minVerh: 1.2,
+      minVol5: 8000, mcapMin: 150000, mcapMax: 50e6, rugMax: 10, lpMin: 90 },
+    { id: "momentum", name: "Momentum", farbe: "#f4b740", text: "starke Käufe in den letzten 5 Minuten",
+      curve: false, minLiq: 15000, alterMin: 10, alterMax: 12 * 60, minM5: 5, maxM5: 60, minH1: 10, minKaeufe5: 80, minVerh: 1.3,
+      minVol5: 10000, mcapMin: 60000, mcapMax: 20e6, rugMax: 25, lpMin: 80 },
+    { id: "frueh", name: "Früh", farbe: "#5aa9ff", text: "junge Coins unter 60 Minuten mit Liquidität",
+      curve: false, minLiq: 10000, alterMin: 5, alterMax: 60, minM5: 4, maxM5: 80, minH1: 0, minKaeufe5: 50, minVerh: 1.2,
+      minVol5: 5000, mcapMin: 40000, mcapMax: 5e6, rugMax: 25, lpMin: 80 },
+    { id: "curve", name: "Curve", farbe: "#a98bff", text: "wie im Video: auch pump.fun-Kurve, höchstes Risiko",
+      curve: true, minLiq: 0, alterMin: 3, alterMax: 180, minM5: 8, maxM5: 120, minH1: 0, minKaeufe5: 60, minVerh: 1.3,
+      minVol5: 5000, mcapMin: 15000, mcapMax: 3e6, rugMax: 35, lpMin: 0 },
+  ];
+  /* Ausstiegsregeln (für alle Agenten gleich) */
+  const AUSSTIEG = { stop: -0.25, tpStufe: 0.60, tpAnteil: 0.5, trailing: 0.20, zeitMin: 45, zeitGewinn: 0.10, maxPos: 3 };
+  /* DEX-Gebühren je Seite (Näherung, Stand 2026) */
+  const DEX_GEBUEHR = { pumpfun: 0.0125, pumpswap: 0.0030, raydium: 0.0025, orca: 0.0030, meteora: 0.0050, meteoradbc: 0.0100,
+    meteoradyn: 0.0050, launchlab: 0.0100 };
+  const LATENZ = 0.01;          // Kurs bewegt sich zwischen Sehen und Ausführen gegen uns
+  const CURVE_RESERVE = 4000;   // pump.fun-Kurve: geschätzte Gegenreserve in $, wenn DexScreener 0 Liquidität meldet
+  const MAX_COINS = 240;        // höchstens so viele Coins beobachten (8 Kurs-Anfragen alle 10 s)
+
+  function neuerZustand(einst) {
+    const e = Object.assign({ start: 50, ziel: 20, einsatz: 0.25, netz: 0.05 }, einst || {});
+    return {
+      version: 1, einst: e, laeuft: false, startZeit: null, laufzeit: 0, solStart: null, solJetzt: null,
+      agenten: AGENTEN.map((a) => ({ id: a.id, bar: e.start / AGENTEN.length, positionen: [], trades: [], kosten: 0, gesperrt: {} })),
+      coins: {}, rug: {}, log: [], letzteSuche: 0, letzteKurse: 0, letzteSol: 0, uebersprungen: 0, rugsVermieden: 0, nr: 0,
+    };
+  }
+
+  function gebuehr(dex) { return DEX_GEBUEHR[dex] !== undefined ? DEX_GEBUEHR[dex] : 0.01; }
+  function reserve(c) { return c.liq > 0 ? c.liq / 2 : CURVE_RESERVE; }
+
+  /* Bestes Paar je Token aus /tokens/v1: das mit der meisten Liquidität (Kurve, wenn es keins gibt). */
+  function paareUebernehmen(z, paare, jetzt) {
+    const best = {};
+    for (const p of paare || []) {
+      const adr = p.baseToken && p.baseToken.address;
+      if (!adr || p.chainId !== "solana" || !p.priceUsd) continue;
+      const liq = (p.liquidity && p.liquidity.usd) || 0;
+      if (!best[adr] || liq > best[adr].liq) best[adr] = Object.assign(p, { liq });
+    }
+    for (const [adr, p] of Object.entries(best)) {
+      const c = z.coins[adr] || (z.coins[adr] = { adr, erstmals: jetzt, verlauf: [] });
+      const m5 = (p.txns && p.txns.m5) || {};
+      Object.assign(c, {
+        sym: (p.baseToken.symbol || "?").slice(0, 16), name: (p.baseToken.name || "").slice(0, 40), dex: p.dexId, url: p.url,
+        preis: Number(p.priceUsd), liq: p.liq, mcap: p.marketCap || p.fdv || 0, alterMin: p.pairCreatedAt ? (jetzt - p.pairCreatedAt) / 60000 : 0,
+        m5: (p.priceChange && p.priceChange.m5) || 0, h1: (p.priceChange && p.priceChange.h1) || 0,
+        kaeufe5: m5.buys || 0, verkaeufe5: m5.sells || 0, vol5: (p.volume && p.volume.m5) || 0, gesehen: jetzt, fehlt: 0,
+        bild: (p.info && p.info.imageUrl) || c.bild || null,
+      });
+      c.verlauf.push([jetzt, c.preis]);
+      if (c.verlauf.length > 90) c.verlauf.splice(0, c.verlauf.length - 90);
+    }
+    return Object.keys(best);
+  }
+
+  function regelOk(a, c) {
+    if (!c || !c.preis) return "kein Kurs";
+    const curve = !(c.liq > 0);
+    if (curve && !a.curve) return "noch auf der pump.fun-Kurve";
+    if (!curve && c.liq < a.minLiq) return `Liquidität $${Math.round(c.liq)} < $${a.minLiq}`;
+    if (c.alterMin < a.alterMin) return `zu jung (${Math.round(c.alterMin)} min)`;
+    if (c.alterMin > a.alterMax) return "zu alt";
+    if (c.mcap < a.mcapMin || c.mcap > a.mcapMax) return `Marktwert $${Math.round(c.mcap)} außerhalb`;
+    if (c.m5 < a.minM5) return `5-min ${c.m5}% zu schwach`;
+    if (c.m5 > a.maxM5) return `5-min +${c.m5}% – zu spät (FOMO)`;
+    if (c.h1 < a.minH1) return `1-h ${c.h1}% zu schwach`;
+    if (c.kaeufe5 < a.minKaeufe5) return `nur ${c.kaeufe5} Käufe in 5 min`;
+    if (c.kaeufe5 < a.minVerh * Math.max(1, c.verkaeufe5)) return "zu viele Verkäufe";
+    if (c.vol5 < a.minVol5) return `Volumen 5 min $${Math.round(c.vol5)} zu klein`;
+    return null;
+  }
+
+  function kurzGrund(g) {
+    if (g.startsWith("Liquidität")) return "zu wenig Liquidität";
+    if (g.startsWith("Marktwert")) return "Marktwert passt nicht";
+    if (g.startsWith("5-min") || g.startsWith("1-h")) return g.includes("zu spät") ? "schon zu stark gestiegen" : "zu wenig Schwung";
+    if (g.startsWith("nur") || g.startsWith("zu viele") || g.startsWith("Volumen")) return "zu wenig Käufer";
+    if (g.startsWith("zu jung")) return "zu jung";
+    return g;
+  }
+
+  function rugOk(a, r) {
+    if (!r) return "Rug-Check fehlt";
+    const gefahr = (r.risks || []).filter((x) => x.level === "danger").map((x) => x.name);
+    if (gefahr.length) return "Rug-Check: " + gefahr.join(", ");
+    if ((r.score_normalised || 0) > a.rugMax) return `Rug-Score ${r.score_normalised} > ${a.rugMax}`;
+    if (a.lpMin && r.lpLockedPct !== undefined && r.lpLockedPct !== null && r.lpLockedPct < a.lpMin) return `nur ${Math.round(r.lpLockedPct)} % Liquidität gesperrt`;
+    return null;
+  }
+
+  function log(z, art, text, jetzt, coin) {
+    z.log.push({ art, text, zeit: jetzt, adr: coin ? coin.adr : null, nr: ++z.nr });
+    if (z.log.length > 120) z.log.splice(0, z.log.length - 120);
+  }
+
+  function kaufen(z, agent, regel, c, jetzt) {
+    const e = z.einst;
+    const usd = Math.min(agent.bar * e.einsatz, agent.bar - e.netz);
+    if (usd < 1) return false;
+    const R = reserve(c), f = gebuehr(c.dex);
+    const preisEff = c.preis * (1 + LATENZ) * (R + usd * (1 - f)) / R;
+    const menge = usd * (1 - f) / preisEff;
+    agent.bar -= usd + e.netz;
+    const kosten = usd * f + usd * (1 - f) * (1 - c.preis / preisEff) + e.netz;
+    agent.kosten += kosten;
+    agent.positionen.push({ adr: c.adr, sym: c.sym, bild: c.bild, dex: c.dex, menge, einsatz: usd + e.netz, kaufPreis: preisEff, signalPreis: c.preis,
+      hoch: c.preis, zeit: jetzt, liqStart: c.liq, teilVerkauft: false, erloes: 0, kosten });
+    agent.gesperrt[c.adr] = jetzt;
+    log(z, "kauf", `${regel.name}: kauft $${c.sym} für $${usd.toFixed(2)} – 5 min +${c.m5}%, ${c.kaeufe5} Käufe, Liq. ${c.liq > 0 ? "$" + Math.round(c.liq / 1000) + "k" : "Kurve"}`, jetzt, c);
+    return true;
+  }
+
+  function verkaufen(z, agent, regel, pos, anteil, c, grund, jetzt, notPreis) {
+    const e = z.einst;
+    const preis = notPreis !== undefined ? notPreis : c.preis;
+    const menge = pos.menge * anteil;
+    const brutto = menge * preis;
+    const R = c && c.liq > 0 ? c.liq / 2 : CURVE_RESERVE;
+    const f = gebuehr(pos.dex);
+    const eff = preis * R / (R + brutto) * (1 - LATENZ);
+    const netto = Math.max(0, menge * eff * (1 - f) - e.netz);
+    const kosten = brutto - netto;
+    agent.bar += netto; agent.kosten += kosten;
+    pos.menge -= menge; pos.erloes += netto; pos.kosten += kosten;
+    if (anteil >= 0.999) {
+      agent.positionen = agent.positionen.filter((p) => p !== pos);
+      const ergebnis = pos.erloes - pos.einsatz;
+      agent.trades.push({ sym: pos.sym, bild: pos.bild, adr: pos.adr, einsatz: pos.einsatz, erloes: pos.erloes, ergebnis, pz: ergebnis / pos.einsatz,
+        grund, dauer: (jetzt - pos.zeit) / 60000, ende: jetzt, kosten: pos.kosten, agent: agent.id });
+      log(z, "verkauf", `${regel.name}: verkauft $${pos.sym} – ${grund}: ${ergebnis >= 0 ? "+" : "−"}$${Math.abs(ergebnis).toFixed(2)} (${(ergebnis / pos.einsatz * 100).toFixed(0)} %)`, jetzt, c || pos);
+    } else {
+      log(z, "verkauf", `${regel.name}: verkauft ${Math.round(anteil * 100)} % von $${pos.sym} – ${grund}`, jetzt, c || pos);
+    }
+  }
+
+  /* Verkaufswert einer Position nach Gebühren und Preiseinfluss (ehrliche Bewertung). */
+  function positionsWert(z, pos) {
+    const c = z.coins[pos.adr];
+    if (!c || !c.preis) return 0;
+    const brutto = pos.menge * c.preis, R = reserve(c);
+    return Math.max(0, pos.menge * c.preis * R / (R + brutto) * (1 - gebuehr(pos.dex)) - z.einst.netz);
+  }
+
+  function ausstiege(z, agent, regel, jetzt) {
+    for (const pos of agent.positionen.slice()) {
+      const c = z.coins[pos.adr];
+      if (!c || c.fehlt >= 3) { verkaufen(z, agent, regel, pos, 1, c, "Paar verschwunden – Notverkauf", jetzt, (c ? c.preis : pos.signalPreis) * 0.3); continue; }
+      if (c.gesehen < z.letzteKurse) continue;          // kein frischer Kurs
+      pos.hoch = Math.max(pos.hoch, c.preis);
+      const plus = c.preis / pos.kaufPreis - 1;
+      if (pos.liqStart > 0 && c.liq < pos.liqStart * 0.3) verkaufen(z, agent, regel, pos, 1, c, "Rug: Liquidität abgezogen", jetzt);
+      else if (plus <= AUSSTIEG.stop) verkaufen(z, agent, regel, pos, 1, c, `Stop ${Math.round(AUSSTIEG.stop * 100)} %`, jetzt);
+      else if (!pos.teilVerkauft && plus >= AUSSTIEG.tpStufe) { pos.teilVerkauft = true; verkaufen(z, agent, regel, pos, AUSSTIEG.tpAnteil, c, `Gewinnmitnahme +${Math.round(AUSSTIEG.tpStufe * 100)} %`, jetzt); }
+      else if (pos.teilVerkauft && c.preis < pos.hoch * (1 - AUSSTIEG.trailing)) verkaufen(z, agent, regel, pos, 1, c, `Trailing-Stop ${Math.round(AUSSTIEG.trailing * 100)} % unter Hoch`, jetzt);
+      else if ((jetzt - pos.zeit) / 60000 > AUSSTIEG.zeitMin && plus < AUSSTIEG.zeitGewinn && !pos.teilVerkauft) verkaufen(z, agent, regel, pos, 1, c, `Zeit-Stop nach ${AUSSTIEG.zeitMin} min`, jetzt);
+    }
+  }
+
+  /* Ein Takt. api: { profile(), boosts(), tokens(adressen[]), rug(adresse), sol() } – alles Promises. */
+  async function takt(z, api, jetzt) {
+    if (!z.laeuft) return;
+    // 1) neue Coins finden (alle 30 s)
+    if (jetzt - z.letzteSuche > 30000) {
+      z.letzteSuche = jetzt;
+      const listen = await Promise.all([api.profile().catch(() => []), api.boosts().catch(() => []),
+        api.topBoosts ? api.topBoosts().catch(() => []) : [], api.takeovers ? api.takeovers().catch(() => []) : []]);
+      let neu = 0;
+      for (const t of [].concat(...listen)) {
+        if (t.chainId !== "solana" || !t.tokenAddress) continue;
+        if (!z.coins[t.tokenAddress]) { z.coins[t.tokenAddress] = { adr: t.tokenAddress, erstmals: jetzt, verlauf: [], bild: t.icon || null, beworben: !!t.amount }; neu++; }
+      }
+      if (neu) log(z, "info", `${neu} neue Coins entdeckt`, jetzt);
+      // alte, uninteressante Coins vergessen
+      const gehalten = new Set(z.agenten.flatMap((a) => a.positionen.map((p) => p.adr)));
+      const alt = Object.values(z.coins).filter((c) => !gehalten.has(c.adr)).sort((x, y) => x.erstmals - y.erstmals);
+      const zuviel = Math.max(0, Object.keys(z.coins).length - MAX_COINS);
+      alt.forEach((c, i) => { if (i < zuviel || jetzt - c.erstmals > 6 * 3600000) { delete z.coins[c.adr]; delete z.rug[c.adr]; } });
+    }
+    // 2) Kurse (alle 10 s, je 30 Adressen eine Anfrage)
+    if (jetzt - z.letzteKurse > 10000) {
+      const adressen = Object.keys(z.coins);
+      const gefunden = new Set();
+      for (let i = 0; i < adressen.length; i += 30) {
+        try { for (const a of paareUebernehmen(z, await api.tokens(adressen.slice(i, i + 30)), jetzt)) gefunden.add(a); } catch (e) { /* nächster Takt */ }
+      }
+      for (const a of adressen) if (!gefunden.has(a) && z.coins[a]) z.coins[a].fehlt = (z.coins[a].fehlt || 0) + 1;
+      z.letzteKurse = jetzt;
+      if (jetzt - z.letzteSol > 60000) {
+        try { const s = await api.sol(); if (s) { z.solJetzt = s; if (!z.solStart) z.solStart = s; z.letzteSol = jetzt; } } catch (e) { /* egal */ }
+      }
+    } else return;
+    // 3) Ausstiege, dann Einstiege je Agent
+    const pruefen = [];
+    AGENTEN.forEach((regel, i) => {
+      const agent = z.agenten[i];
+      ausstiege(z, agent, regel, jetzt);
+      if (agent.positionen.length >= AUSSTIEG.maxPos) return;
+      for (const c of Object.values(z.coins)) {
+        if (agent.gesperrt[c.adr] || agent.positionen.some((p) => p.adr === c.adr) || c.gesehen !== z.letzteKurse) continue;
+        if (regelOk(regel, c)) continue;
+        pruefen.push([regel, agent, c]);
+      }
+    });
+    // Einmal pro Minute ins Terminal: was geprüft wurde und warum nicht gekauft wird
+    if (jetzt - (z.letzteMeldung || 0) > 60000) {
+      z.letzteMeldung = jetzt;
+      const mitKurs = Object.values(z.coins).filter((c) => c.gesehen === z.letzteKurse);
+      const gruende = {};
+      for (const c of mitKurs) {
+        const g = AGENTEN.map((a) => regelOk(a, c));
+        if (g.every(Boolean)) { const k = kurzGrund(g[0]); gruende[k] = (gruende[k] || 0) + 1; }
+      }
+      const meist = Object.entries(gruende).sort((x, y) => y[1] - x[1])[0];
+      log(z, "info", `${mitKurs.length} Coins geprüft · ${new Set(pruefen.map((p) => p[2].adr)).size} bestehen die Regeln` + (meist ? ` · meist abgelehnt: ${meist[0]}` : ""), jetzt);
+    }
+    // 4) Rug-Check nur für Kandidaten (zwischengespeichert 10 min, höchstens 4 neue Abfragen pro Takt)
+    let abfragen = 0;
+    for (const [regel, agent, c] of pruefen) {
+      let r = z.rug[c.adr];
+      if (!r || jetzt - r.zeit > 600000) {
+        if (abfragen >= 4) continue;
+        abfragen++;
+        try { r = z.rug[c.adr] = Object.assign(await api.rug(c.adr), { zeit: jetzt }); } catch (e) { continue; }
+      }
+      const grund = rugOk(regel, r);
+      if (grund) {
+        if (!r.gemeldet) { log(z, "skip", `$${c.sym} übersprungen – ${grund}`, jetzt, c); z.rugsVermieden++; r.gemeldet = true; }
+        agent.gesperrt[c.adr] = jetzt;
+        continue;
+      }
+      if (agent.positionen.length < AUSSTIEG.maxPos && !agent.positionen.some((p) => p.adr === c.adr)) kaufen(z, agent, regel, c, jetzt);
+    }
+  }
+
+  function bilanz(z) {
+    const e = z.einst;
+    const proAgent = z.agenten.map((a, i) => {
+      const wert = a.bar + a.positionen.reduce((s, p) => s + positionsWert(z, p), 0);
+      return { regel: AGENTEN[i], wert, ergebnis: wert - e.start / AGENTEN.length, trades: a.trades.length, offen: a.positionen.length, kosten: a.kosten };
+    });
+    const wert = proAgent.reduce((s, a) => s + a.wert, 0);
+    const trades = z.agenten.flatMap((a) => a.trades);
+    const gew = trades.filter((t) => t.ergebnis > 0), verl = trades.filter((t) => t.ergebnis <= 0);
+    return {
+      wert, ergebnis: wert - e.start, faktor: wert / e.start, proAgent, trades, kosten: z.agenten.reduce((s, a) => s + a.kosten, 0),
+      trefferquote: trades.length ? gew.length / trades.length : null,
+      schnittGewinn: gew.length ? gew.reduce((s, t) => s + t.pz, 0) / gew.length : null,
+      schnittVerlust: verl.length ? verl.reduce((s, t) => s + t.pz, 0) / verl.length : null,
+      rugs: trades.filter((t) => t.grund.startsWith("Rug") || t.grund.startsWith("Paar verschwunden")).length,
+      solErgebnis: z.solStart && z.solJetzt ? e.start * (z.solJetzt / z.solStart) - e.start : null,
+      offen: z.agenten.flatMap((a, i) => a.positionen.map((p) => Object.assign({ agent: AGENTEN[i], wert: positionsWert(z, p) }, p))),
+    };
+  }
+
+  function fetchApi(fetchFn) {
+    const json = async (url) => { const r = await fetchFn(url); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); };
+    return {
+      profile: () => json("https://api.dexscreener.com/token-profiles/latest/v1"),
+      boosts: () => json("https://api.dexscreener.com/token-boosts/latest/v1"),
+      topBoosts: () => json("https://api.dexscreener.com/token-boosts/top/v1"),
+      takeovers: () => json("https://api.dexscreener.com/community-takeovers/latest/v1"),
+      tokens: (adr) => json("https://api.dexscreener.com/tokens/v1/solana/" + adr.join(",")),
+      rug: (adr) => json("https://api.rugcheck.xyz/v1/tokens/" + adr + "/report/summary"),
+      sol: async () => { const p = await json("https://api.dexscreener.com/tokens/v1/solana/" + SOL_MINT); const b = p.sort((x, y) => ((y.liquidity || {}).usd || 0) - ((x.liquidity || {}).usd || 0))[0]; return b ? Number(b.priceUsd) : null; },
+    };
+  }
+
+  const MB = { AGENTEN, AUSSTIEG, DEX_GEBUEHR, LATENZ, neuerZustand, takt, bilanz, regelOk, rugOk, paareUebernehmen, kaufen, verkaufen, positionsWert, fetchApi };
+  if (typeof module !== "undefined" && module.exports) module.exports = MB;
+  global.MB = MB;
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+
+<script>
+/* ================= Oberfläche ================= */
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SPEICHER = "memecoin-bot-v1";
+const usd = (x, vz) => (vz ? (x >= 0 ? "+" : "−") : (x < 0 ? "−" : "")) + "$" + Math.abs(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pz = (x) => (x >= 0 ? "+" : "−") + Math.abs(x * 100).toFixed(0) + "%";
+const uhr = (t) => new Date(t).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function bildUrl(u) { return typeof u === "string" && u.startsWith("https://") ? esc(u) : ""; }
+
+let z = laden() || MB.neuerZustand();
+const api = MB.fetchApi((u) => fetch(u, { cache: "no-store" }));
+let wachSperre = null, besetzt = false;
+
+function laden() { try { const s = JSON.parse(localStorage.getItem(SPEICHER)); return s && s.version === 1 ? s : null; } catch (e) { return null; } }
+function speichern() { try { localStorage.setItem(SPEICHER, JSON.stringify(z)); } catch (e) { /* voll oder privat */ } }
+
+async function schleife() {
+  if (besetzt || !z.laeuft || document.hidden) return;
+  besetzt = true;
+  try { await MB.takt(z, api, Date.now()); z.laufzeit += 3; } catch (e) { console.error(e); }
+  besetzt = false;
+  speichern();
+  zeichnen();
+}
+setInterval(schleife, 3000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { wachHolen(); schleife(); } });
+
+$("start").onclick = () => {
+  z.laeuft = !z.laeuft;
+  if (z.laeuft && !z.startZeit) z.startZeit = Date.now();
+  z.log.push({ art: "info", text: z.laeuft ? "Bot gestartet – sucht neue Solana-Coins" : "Bot pausiert", zeit: Date.now(), nr: ++z.nr });
+  speichern(); zeichnen(); schleife();
+};
+$("reset").onclick = (ev) => {
+  const b = ev.currentTarget;
+  if (!b.dataset.scharf) { b.dataset.scharf = "1"; b.textContent = "Wirklich neu?"; setTimeout(() => { delete b.dataset.scharf; b.textContent = "↺ Neu"; }, 3000); return; }
+  z = MB.neuerZustand({ start: Number($("e-start").value) || 50, ziel: Number($("e-ziel").value) || 20, einsatz: (Number($("e-einsatz").value) || 25) / 100, netz: Number($("e-netz").value) || 0 });
+  delete b.dataset.scharf; b.textContent = "↺ Neu";
+  speichern(); zeichnen();
+};
+$("wach").onclick = async () => {
+  if (wachSperre) { await wachSperre.release().catch(() => {}); wachSperre = null; } else await wachHolen(true);
+  zeichnen();
+};
+async function wachHolen(gewollt) {
+  if (!(gewollt || wachSperre) || !("wakeLock" in navigator)) return;
+  try { wachSperre = await navigator.wakeLock.request("screen"); wachSperre.addEventListener("release", () => { wachSperre = null; zeichnen(); }); }
+  catch (e) { wachSperre = null; }
+}
+
+function zeichnen() {
+  const b = MB.bilanz(z), e = z.einst;
+  $("betrag").textContent = usd(b.wert);
+  $("betrag").className = "betrag " + (b.ergebnis > 0.005 ? "auf" : b.ergebnis < -0.005 ? "ab" : "");
+  $("aenderung").textContent = `${usd(b.ergebnis, true)} seit Start (${usd(e.start)})`;
+  $("sol-wert").textContent = b.solErgebnis === null ? "" : `· SOL halten: ${usd(b.solErgebnis, true)}`;
+  $("faktor").textContent = b.faktor.toFixed(2) + "×";
+  $("trades-kurz").textContent = `${b.trades.length} Trades` + (b.trefferquote !== null ? ` · ${Math.round(b.trefferquote * 100)}% Gewinner` : "");
+  $("ziel-text").textContent = `Ziel ${e.ziel}× · ${usd(e.start * e.ziel)}`;
+  $("ziel-balken").style.width = Math.max(0, Math.min(100, Math.log(Math.max(b.faktor, 1)) / Math.log(e.ziel) * 100)) + "%";
+  $("start").textContent = z.laeuft ? "❚❚ Pause" : "▶ Starten";
+  $("live").textContent = z.laeuft ? "LIVE" : "pausiert";
+  $("live").className = "live" + (z.laeuft ? "" : " aus");
+  $("wach").textContent = wachSperre ? "☀︎ bleibt wach" : "☀︎ Wach halten";
+  $("wach").disabled = !("wakeLock" in navigator);
+  $("beobachtet").textContent = `${Object.keys(z.coins).length} Coins beobachtet`;
+
+  // Agenten
+  const summe = b.proAgent.reduce((s, a) => s + Math.abs(a.ergebnis), 0) || 1;
+  $("stapel").innerHTML = b.proAgent.map((a) => `<i style="width:${Math.abs(a.ergebnis) / summe * 100}%;background:${a.regel.farbe};opacity:${a.ergebnis >= 0 ? 1 : .45}"></i>`).join("");
+  $("agenten").innerHTML = b.proAgent.map((a) => `<div class="agent" style="--f:${a.regel.farbe}"><div class="z"><b>${esc(a.regel.name)}</b><span class="w ${a.ergebnis >= 0 ? "auf" : "ab"}">${usd(a.ergebnis, true)}</span></div>
+    <p>${esc(a.regel.text)}</p><div class="z grau"><span>${a.trades} Trades · ${a.offen} offen</span><span>Kosten ${usd(a.kosten)}</span></div></div>`).join("");
+
+  // Offene Positionen
+  $("offen-zahl").textContent = b.offen.length;
+  $("offen").innerHTML = b.offen.length ? b.offen.map((p) => {
+    const c = z.coins[p.adr] || {}, plus = c.preis ? c.preis / p.kaufPreis - 1 : 0;
+    return `<div class="pos ${plus < 0 ? "rot" : ""}" style="--f:${p.agent.farbe}"><div class="k">${p.bild ? `<img src="${bildUrl(p.bild)}" alt="">` : ""}<span>$${esc(p.sym)}</span></div>
+      <div class="p ${plus >= 0 ? "auf" : "ab"}">${pz(plus)}</div><div class="d">${esc(p.agent.name)} · Wert ${usd(p.wert)} · seit ${Math.round((Date.now() - p.zeit) / 60000)} min${p.teilVerkauft ? " · ½ verkauft" : ""}</div></div>`;
+  }).join("") : `<p class="leer">${z.laeuft ? "Wartet auf einen Coin, der alle Regeln und den Rug-Check besteht." : "Starte den Bot."}</p>`;
+
+  // Geschlossene Trades
+  const t = b.trades.slice().sort((x, y) => y.ende - x.ende);
+  $("geschlossen-zahl").textContent = t.length;
+  $("geschlossen").innerHTML = t.length ? t.slice(0, 24).map((x) => {
+    const regel = MB.AGENTEN.find((a) => a.id === x.agent);
+    return `<div class="pos ${x.ergebnis < 0 ? "rot" : ""}" style="--f:${regel.farbe}"><div class="k">${x.bild ? `<img src="${bildUrl(x.bild)}" alt="">` : ""}<span>$${esc(x.sym)}</span></div>
+      <div class="p ${x.ergebnis >= 0 ? "auf" : "ab"}">${pz(x.pz)}</div><div class="d">${usd(x.ergebnis, true)} · ${esc(x.grund)} · ${Math.round(x.dauer)} min</div></div>`;
+  }).join("") : `<p class="leer">Noch keine.</p>`;
+
+  // Terminal
+  $("terminal").innerHTML = z.log.slice(-60).reverse().map((l) => {
+    const c = l.adr && z.coins[l.adr];
+    const bild = c && c.bild ? `<img src="${bildUrl(c.bild)}" alt="" style="vertical-align:-4px;margin-right:4px">` : "";
+    return `<div class="blase ${l.art}"><time>${uhr(l.zeit)}</time>${bild}${esc(l.text)}</div>`;
+  }).join("") || `<p class="leer">Noch nichts passiert.</p>`;
+
+  // Bilanz
+  const werte = [
+    ["Ergebnis nach Kosten", usd(b.ergebnis, true), b.ergebnis >= 0 ? "auf" : "ab"],
+    ["SOL halten im selben Zeitraum", b.solErgebnis === null ? "–" : usd(b.solErgebnis, true), ""],
+    ["Gebühren, Slippage, Netzwerk", usd(b.kosten), "ab"],
+    ["Gewinner-Trades", b.trefferquote === null ? "–" : `${Math.round(b.trefferquote * 100)} %`, ""],
+    ["Ø Gewinn / Ø Verlust", b.schnittGewinn === null && b.schnittVerlust === null ? "–" : `${b.schnittGewinn === null ? "–" : pz(b.schnittGewinn)} / ${b.schnittVerlust === null ? "–" : pz(b.schnittVerlust)}`, ""],
+    ["Rugs erwischt / vorher übersprungen", `${b.rugs} / ${z.rugsVermieden}`, ""],
+    ["Laufzeit", `${Math.floor(z.laufzeit / 3600)} h ${Math.floor(z.laufzeit % 3600 / 60)} min`, ""],
+    ["Größter Einzelverlust", t.length ? pz(Math.min(...t.map((x) => x.pz))) : "–", ""],
+  ];
+  $("bilanz").innerHTML = werte.map(([a, w, k]) => `<div><small>${a}</small><b class="${k}">${w}</b></div>`).join("");
+}
+
+$("e-start").value = z.einst.start; $("e-ziel").value = z.einst.ziel; $("e-einsatz").value = Math.round(z.einst.einsatz * 100); $("e-netz").value = z.einst.netz;
+zeichnen();
+if (z.laeuft) schleife();
+</script>
+</body>
+</html>
