@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v node >/dev/null 2>&1 && exec node '/home/user/Rich/.codex/hooks/session-start.mjs'; exec '/opt/node22/bin/node' '/home/user/Rich/.codex/hooks/session-start.mjs'"
+          }
+        ]
+      }
+    ]
+  }
+}
