@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Day-Trader-Rennen – alles in einer Datei, für die Python-App auf dem iPad.
+
+25 Bots starten mit je 10 € und handeln US-Aktien nach den Regeln aus day-trader-skill
+(Ausbruch aus der Eröffnungsspanne, Stop und Ziel vorab, glatt um 15:55). Ziel: 1.000 €.
+Echtgeld-Simulation: Gebühren, Spread, Slippage, Ausführung zum nächsten Eröffnungskurs,
+Kurslücken und Wechselkurs EUR/USD je nach Broker-Modell. Keine echten Orders,
+keine Anlageberatung.
+
+So funktioniert es
+  1. Python lädt 60 Tage echte Fünf-Minuten-Kerzen (Yahoo) und den EUR/USD-Kurs.
+  2. Daraus baut es eine fertige Seite, in der das ganze Rennen läuft (JavaScript).
+  3. Die Seite öffnet sich: in Pythonista/Pyto direkt in der App, sonst in Safari.
+     Danach braucht die Seite Python nicht mehr. Die App darf in den Hintergrund.
+
+Starten
+  Pythonista 3, Pyto oder andere Python-Apps: Datei öffnen, ▶/Ausführen.
+  Mac/PC:   python3 day_trader_rennen.py
+Optionen (Terminal): --offline  --aktien TSLA,NVDA,AMD,META,PLTR  --nur-datei  --port 8765
+
+Nur Standardbibliothek, Python 3.8 oder neuer. Erzeugt aus dem Repo mit ipad/bauen.py.
+"""
+
+import argparse
+import base64
+import datetime
+import gzip
+import json
+import os
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+# =====================================================================================
+# Teil 1 – Kursabruf aus der Time Machine von day-trader-skill (unverändert übernommen)
+# https://github.com/Jakeschincariol/day-trader-skill, trader-timemachine/timemachine.py
+#
+#LIZENZ#
+# =====================================================================================
+
+#TIME_MACHINE#
+
+
+# =====================================================================================
+# Teil 2 – Kursdaten: Yahoo, sonst die eingebauten echten TSLA-Kerzen
+# (TSLA bis 16.10.2026 aus den Testdaten von day-trader-skill, MIT)
+# =====================================================================================
+
+TSLA_GZ_B64 = (
+#TSLA_DATEN#
+)
+
+STANDARD_AKTIEN = ("TSLA", "NVDA", "AMD", "META", "PLTR")
+FX_ANNAHME = 1.15     # USD je EUR, nur wenn Yahoo nicht erreichbar ist (wird als „Annahme“ angezeigt)
+
+
+def kerzen_text(sym, offline, log):
+    """(Yahoo-JSON-Text, Quelle, Symbol der Daten)."""
+    if not offline:
+        try:
+            text = fetch_chart(sym)
+            chart_result(text, sym)
+            time.sleep(PAUSE)
+            return text, "Yahoo", sym
+        except TMError as fehler:
+            log(f"{sym}: Yahoo nicht erreichbar ({fehler})")
+    log(f"{sym}: nehme die eingebauten echten TSLA-Kerzen")
+    return gzip.decompress(base64.b64decode(TSLA_GZ_B64)).decode("utf-8"), "eingebaut", "TSLA"
+
+
+def handelstage(text, sym):
+    """Volle Handelstage (78 Kerzen), älteste zuerst, als [datum, [[o, h, l, c], ...]]."""
+    jetzt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    _, kerzen, _ = parse_bars(chart_result(text, sym), jetzt)
+    voll, _ = full_sessions(split_sessions(kerzen), before="9999-12-31")
+    return [[d, [[round(b["o"], 4), round(b["h"], 4), round(b["l"], 4), round(b["c"], 4)] for b in k]]
+            for d, k in voll]
+
+
+def wechselkurse(offline, log):
+    """Tägliche EUR/USD-Schlusskurse (USD je EUR) von Yahoo, Datum → Kurs."""
+    if not offline:
+        url = "https://query2.finance.yahoo.com/v8/finance/chart/EURUSD%3DX?range=1y&interval=1d"
+        try:
+            r = chart_result(_get(url), "EURUSD=X")
+            q = (r.get("indicators") or {}).get("quote") or [{}]
+            kurse = {}
+            for ts, c in zip(r.get("timestamp") or [], q[0].get("close") or []):
+                if ts and c:
+                    tag = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).date().isoformat()
+                    kurse[tag] = round(float(c), 5)
+            if kurse:
+                return {"kurse": kurse, "quelle": "Yahoo, tägliche Schlusskurse", "annahme": FX_ANNAHME}
+        except (TMError, OSError, ValueError, KeyError) as fehler:
+            log(f"EUR/USD: Yahoo nicht erreichbar ({fehler})")
+    return {"kurse": {}, "quelle": f"Annahme {FX_ANNAHME:.2f}, kein Kurs geladen".replace(".", ","),
+            "annahme": FX_ANNAHME}
+
+
+def daten_paket(aktien, offline=False, log=print):
+    paket = {"aktien": [], "erstellt": datetime.datetime.now().isoformat(timespec="minutes")}
+    for sym in aktien:
+        text, quelle, daten_sym = kerzen_text(sym, offline, log)
+        tage = handelstage(text, daten_sym)
+        name = sym if daten_sym == sym else f"{sym}→{daten_sym}"
+        log(f"  {name:10} {len(tage):3} volle Handelstage ({quelle})")
+        paket["aktien"].append({"sym": daten_sym, "quelle": quelle, "tage": tage})
+    paket["fx"] = wechselkurse(offline, log)
+    log(f"  EUR/USD    {paket['fx']['quelle']}")
+    return paket
+
+
+# =====================================================================================
+# Teil 3 – Oberfläche und Engine (HTML, CSS, JavaScript): das Rennen läuft in der Seite
+# =====================================================================================
+
+#STATIC#
+
+
+def seite_bauen(paket):
+    daten = json.dumps(paket, separators=(",", ":")).replace("</", "<\\/")
+    html = INDEX_HTML
+    html = html.replace('<link rel="stylesheet" href="/static/app.css">', "<style>" + APP_CSS + "</style>")
+    html = html.replace('<script src="/static/engine.js"></script>',
+                        "<script>window.DTR_DATEN=" + daten + ";</script>\n<script>" + ENGINE_JS + "</script>")
+    html = html.replace('<script src="/static/app.js"></script>', "<script>" + APP_JS + "</script>")
+    if "/static/" in html:
+        raise RuntimeError("Seite enthält noch Verweise auf /static/")
+    return html
+
+
+# =====================================================================================
+# Teil 4 – Anzeigen: in der App (Pythonista, Pyto), sonst als Datei und über Safari
+# =====================================================================================
+
+def in_app_anzeigen(html):
+    """True, wenn die Seite in der App gezeigt wurde (und das Fenster wieder zu ist)."""
+    try:
+        import ui  # Pythonista
+        ansicht = ui.WebView(name="Day-Trader-Rennen")
+        ansicht.load_html(html)
+        ansicht.present("fullscreen")
+        ansicht.wait_modal()
+        return True
+    except ImportError:
+        pass
+    except Exception as fehler:  # Ansicht nicht möglich: über Safari weiter
+        print(f"In-App-Ansicht nicht möglich ({fehler}).")
+    try:
+        import pyto_ui  # Pyto
+        ansicht = pyto_ui.WebView()
+        ansicht.load_html(html)
+        pyto_ui.show_view(ansicht, pyto_ui.PRESENTATION_MODE_FULLSCREEN)
+        return True
+    except ImportError:
+        pass
+    except Exception as fehler:
+        print(f"In-App-Ansicht nicht möglich ({fehler}).")
+    return False
+
+
+def datei_schreiben(html):
+    datei = globals().get("__file__")
+    ordner = ([os.path.dirname(os.path.abspath(datei))] if datei else []) + [os.getcwd(), os.path.expanduser("~")]
+    for o in ordner:
+        try:
+            pfad = os.path.join(o, "day_trader_rennen.html")
+            with open(pfad, "w", encoding="utf-8") as f:
+                f.write(html)
+            return pfad
+        except OSError:
+            continue
+    return None
+
+
+def ueber_browser(html, port):
+    """Liefert die Seite einmal aus und öffnet den Browser. Danach läuft sie ohne Server weiter."""
+    body = html.encode("utf-8")
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            if urllib.parse.urlparse(self.path).path not in ("/", "/index.html"):
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = None
+    for p in list(range(port, port + 20)) + [0]:
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", p), Handler)
+            break
+        except OSError:
+            continue
+    if server is None:
+        return None
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}/"
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+    return server, url
+
+
+def main():
+    p = argparse.ArgumentParser(description="Day-Trader-Rennen: 25 Bots × 10 € → 1.000 €")
+    p.add_argument("--aktien", default=",".join(STANDARD_AKTIEN), help="genau 5 Ticker")
+    p.add_argument("--offline", action="store_true", help="Yahoo nicht abfragen")
+    p.add_argument("--nur-datei", action="store_true", help="nur day_trader_rennen.html schreiben")
+    p.add_argument("--port", type=int, default=8765)
+    a, _ = p.parse_known_args()   # manche Apps übergeben eigene Argumente
+    aktien = [s.strip().upper() for s in a.aktien.split(",") if s.strip()]
+    if len(aktien) != 5:
+        raise SystemExit("--aktien braucht genau 5 Ticker (5 Aktien × 5 Regelprofile = 25 Bots)")
+
+    print("Lade echte Kurse …")
+    html = seite_bauen(daten_paket(aktien, offline=a.offline))
+    pfad = datei_schreiben(html)
+    if pfad:
+        print(f"\nSeite gespeichert: {pfad}")
+    if a.nur_datei:
+        return
+    if in_app_anzeigen(html):
+        return
+    ergebnis = ueber_browser(html, a.port)
+    if ergebnis:
+        server, url = ergebnis
+        print(f"Dashboard: {url}")
+        print("Falls sich nichts öffnet: diese Adresse in Safari eingeben.")
+        print("Sobald die Seite geladen ist, läuft das Rennen dort von allein –")
+        print("diese App darf dann in den Hintergrund. Beenden: Stopp-Knopf der App oder Strg+C.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            server.shutdown()
+    elif pfad:
+        print("Öffne die gespeicherte Datei day_trader_rennen.html im Browser.")
+
+
+if __name__ == "__main__":
+    main()

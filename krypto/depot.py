@@ -1,82 +1,47 @@
-"""Simuliertes Spielgeld-Depot. Keine Börse, keine echten Orders."""
+"""Papierdepot nach Kraken-Regeln: Kauf zum Briefkurs (Ask), Verkauf zum Geldkurs (Bid),
+0,40 % Taker-Gebühr, Mindestmenge (ordermin), Mindestwert (costmin), Mengen auf lot_decimals abgerundet.
+Es wird nie eine echte Order geschickt."""
 
-GEBUEHR = 0.001  # 0,1 % pro Order
-STARTKAPITAL = 10.0
-ZIEL = 1000.0
-PLEITE = 1.0
+import math
 
-LAEUFT = "läuft"
-ZIEL_ERREICHT = "ziel"
-BANKROTT = "pleite"
+from krypto.backtest import GEBUEHR
 
 
-def neues_depot(name, zeit):
-    return {
-        "name": name,
-        "bargeld": STARTKAPITAL,
-        "coin": None,
-        "menge": 0.0,
-        "status": LAEUFT,
-        "ziel_zeit": None,
-        "pleite_zeit": None,
-        "gebuehren": 0.0,
-        "orders": 0,
-        "hoechstwert": STARTKAPITAL,
-        "max_drawdown": 0.0,
-        "wert": STARTKAPITAL,
-        "ki_ausfaelle": 0,
-        "letzte_entscheidung": None,
-        "start": zeit,
-    }
+def neues_depot(startkapital):
+    return {"bargeld": startkapital, "pair": None, "coin": None, "menge": 0.0, "einsatz": 0.0, "hoch": None,
+            "kauf_zeit": None, "kauf_kurs": None}
 
 
-def wert(depot, preise):
-    if depot["coin"] is None:
-        return depot["bargeld"]
-    return depot["bargeld"] + depot["menge"] * preise[depot["coin"]]
+def abrunden(x, stellen):
+    f = 10 ** stellen
+    return math.floor(x * f) / f
 
 
-def _verkaufen(depot, preise):
-    erloes = depot["menge"] * preise[depot["coin"]]
+def kaufen(depot, pair, info, ask, zeit):
+    """Kauft für das ganze Bargeld. Gibt (trade oder None, grund) zurück."""
+    menge = abrunden(depot["bargeld"] / (1 + GEBUEHR) / ask, info.get("lot_decimals", 8))
+    wert = menge * ask
+    if menge <= 0 or menge < info.get("ordermin", 0) or wert < info.get("costmin", 0):
+        return None, (f"{info['coin']}: {depot['bargeld']:.2f} € reichen nicht für die Kraken-Mindestorder "
+                      f"({info.get('ordermin', 0)} {info['coin']} ≈ {info.get('ordermin', 0) * ask:.2f} €)")
+    gebuehr = wert * GEBUEHR
+    depot.update(bargeld=depot["bargeld"] - wert - gebuehr, pair=pair, coin=info["coin"], menge=menge,
+                 einsatz=wert + gebuehr, hoch=ask, kauf_zeit=zeit, kauf_kurs=ask)
+    return {"art": "Kauf", "coin": info["coin"], "pair": pair, "menge": menge, "kurs": ask, "wert": wert,
+            "gebuehr": gebuehr, "zeit": zeit}, None
+
+
+def verkaufen(depot, bid, zeit, grund):
+    erloes = depot["menge"] * bid
     gebuehr = erloes * GEBUEHR
-    depot["bargeld"] += erloes - gebuehr
-    depot["gebuehren"] += gebuehr
-    depot["orders"] += 1
-    depot["coin"] = None
-    depot["menge"] = 0.0
+    trade = {"art": "Verkauf", "coin": depot["coin"], "pair": depot["pair"], "menge": depot["menge"], "kurs": bid,
+             "wert": erloes, "gebuehr": gebuehr, "zeit": zeit, "grund": grund,
+             "ergebnis": erloes - gebuehr - depot["einsatz"], "kauf_kurs": depot["kauf_kurs"],
+             "kauf_zeit": depot["kauf_zeit"]}
+    depot.update(bargeld=depot["bargeld"] + erloes - gebuehr, pair=None, coin=None, menge=0.0, einsatz=0.0,
+                 hoch=None, kauf_zeit=None, kauf_kurs=None)
+    return trade
 
 
-def _kaufen(depot, coin, preise):
-    gebuehr = depot["bargeld"] * GEBUEHR
-    depot["menge"] = (depot["bargeld"] - gebuehr) / preise[coin]
-    depot["gebuehren"] += gebuehr
-    depot["orders"] += 1
-    depot["coin"] = coin
-    depot["bargeld"] = 0.0
-
-
-def umschichten(depot, ziel_coin, preise):
-    """Setzt das ganze Depot auf ziel_coin (None = Bargeld). Orders nur bei Wechsel."""
-    if depot["status"] == BANKROTT or depot["coin"] == ziel_coin:
-        return
-    if depot["coin"] is not None:
-        _verkaufen(depot, preise)
-    if ziel_coin is not None:
-        _kaufen(depot, ziel_coin, preise)
-
-
-def bewerten(depot, preise, zeit):
-    """Aktualisiert Wert, Zwischenverlust und Rennstatus nach einem Lauf."""
-    w = wert(depot, preise)
-    depot["wert"] = w
-    depot["hoechstwert"] = max(depot["hoechstwert"], w)
-    if depot["hoechstwert"] > 0:
-        depot["max_drawdown"] = max(depot["max_drawdown"], 1 - w / depot["hoechstwert"])
-    if w >= ZIEL and depot["ziel_zeit"] is None:
-        depot["ziel_zeit"] = zeit
-        if depot["status"] == LAEUFT:
-            depot["status"] = ZIEL_ERREICHT
-    if w < PLEITE and depot["status"] != BANKROTT:
-        depot["status"] = BANKROTT
-        depot["pleite_zeit"] = zeit
-    return w
+def wert(depot, bid):
+    return depot["bargeld"] + (depot["menge"] * bid if depot["pair"] and bid else 0.0)

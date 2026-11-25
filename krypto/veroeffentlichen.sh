@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Zustand, Verlauf und Bericht liegen auf dem Branch krypto-daten, immer als ein einziger Commit.
-# So wächst der Git-Verlauf nicht um einen Commit pro Stunde.
-#   laden             Dateien vom Daten-Branch nach $DATEN holen (fehlt der Branch: neues Rennen)
+# So wächst der Git-Verlauf nicht um einen Commit pro Lauf.
+#   laden             Dateien vom Daten-Branch nach $DATEN holen (fehlt der Branch: neues Depot)
 #   veroeffentlichen  Dateien aus $DATEN als einzelnen Commit auf den Daten-Branch schreiben (Force-Push)
 #   --trockenlauf     wie veroeffentlichen, aber ohne Push; zeigt den Commit-Inhalt
 set -euo pipefail
 
 BRANCH=krypto-daten
 DATEN=${DATEN:-daten}
-DATEIEN=(KRYPTO-REPORT.md zustand.json verlauf.csv)
+DATEIEN=(KRYPTO-REPORT.md zustand.json verlauf.svg)
 
 commit_bauen() {
   local index
