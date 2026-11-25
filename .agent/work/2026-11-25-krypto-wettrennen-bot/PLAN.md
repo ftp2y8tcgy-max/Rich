@@ -23,6 +23,9 @@
 - Zustand lässt sich als JSON speichern und unverändert wieder laden.
 **Verification:** `python3 -m unittest discover -s tests_krypto -v`
 **Touches:** `krypto/depot.py`, `krypto/strategien.py`, `krypto/STRATEGIEN.md`, `tests_krypto/`
+**Status:** complete
+**Evidence:** neu `krypto/depot.py`, `krypto/strategien.py`, `krypto/STRATEGIEN.md`, `tests_krypto/test_kern.py`; `python3 -m unittest discover -s tests_krypto -v` → 15 Tests OK (Gebühren, Orders nur bei Wechsel, Ziel bleibt, Pleite stoppt Handel, Drawdown, JSON-Rundreise, Szenario mit erwarteten Orders und Endwert).
+**Risks / next:** none
 
 ### Slice 2: KI-Händler
 
