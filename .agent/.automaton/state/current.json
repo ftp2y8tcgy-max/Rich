@@ -1,5 +1,6 @@
 {
   "active_change": "2026-11-25-krypto-wettrennen-bot",
-  "stage": "frame",
-  "canonical_spec": ".agent/work/2026-11-25-krypto-wettrennen-bot/SPEC.md"
+  "stage": "plan",
+  "canonical_spec": ".agent/work/2026-11-25-krypto-wettrennen-bot/SPEC.md",
+  "canonical_plan": ".agent/work/2026-11-25-krypto-wettrennen-bot/PLAN.md"
 }
