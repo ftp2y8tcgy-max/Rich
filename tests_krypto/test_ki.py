@@ -57,6 +57,11 @@ class KiTest(unittest.TestCase):
         self.assertEqual(self.dep["ki_ausfaelle"], 4)
         self.assertTrue(self.dep["letzte_entscheidung"]["begruendung"].startswith("Ausfall"))
 
+    def test_http_code_im_bericht(self):
+        f = urllib.error.HTTPError("https://x", 401, "Unauthorized", {}, None)
+        ki.entscheiden(kurse(), self.dep, "t1", schlaegt_fehl(f))
+        self.assertEqual(self.dep["letzte_entscheidung"]["begruendung"], "Ausfall: HTTP 401")
+
     def test_fehlender_schluessel_heisst_halten(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             self.assertEqual(ki.entscheiden(kurse(), self.dep, "t1"), ki.HALTEN)
