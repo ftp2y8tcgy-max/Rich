@@ -2,7 +2,7 @@
 
 ## Day-Trader-Rennen (Web-Dashboard)
 
-25 Bots mit je 10 € Spielgeld handeln US-Aktien nach den Regeln aus [day-trader-skill](https://github.com/Jakeschincariol/day-trader-skill), Ziel 1.000 €. Start: `python3 dashboard/start.py --autostart`, dann `http://localhost:8765` (auch vom iPad im WLAN). Details: [dashboard/README.md](dashboard/README.md).
+25 Bots mit je 10 € handeln US-Aktien nach den Regeln aus [day-trader-skill](https://github.com/Jakeschincariol/day-trader-skill), Ziel 1.000 €. Start: `python3 ipad/day_trader_rennen.py` (auch direkt in einer Python-App auf dem iPad). Echtgeld-Simulation mit Gebühren, Spread, Slippage und Wechselkurs. Details: [dashboard/README.md](dashboard/README.md).
 
 Die 11 Skills des Pakets (`/trader-scanner`, `/trader-entry`, `/trader-timemachine` …) sind unter `.claude/skills/` installiert.
 

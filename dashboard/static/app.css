@@ -76,6 +76,10 @@ main { margin-left: 92px; padding: 18px 22px 18px 6px; display: flex; flex-direc
 .knopf:hover { border-color: var(--rand-hell); }
 .knopf:active { transform: scale(0.96); }
 .knopf.gold { background: linear-gradient(135deg, var(--orange), var(--gold)); color: #1b1206; border-color: transparent; box-shadow: 0 6px 18px rgba(255, 138, 61, 0.3); }
+.broker-wahl { display: flex; align-items: center; gap: 8px; color: var(--gedaempft); font-size: 12px; }
+.broker-wahl select { background: var(--panel-2); color: var(--text); border: 1px solid var(--rand-hell); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; }
+#broker-text { color: var(--gold-hell); }
+#fussnote { color: var(--gedaempft); margin-bottom: 4px; }
 .tempo { display: flex; align-items: center; gap: 8px; color: var(--gedaempft); font-size: 12px; }
 .tempo input { width: 120px; accent-color: var(--gold); }
 .tempo output { color: var(--gold-hell); font-family: var(--mono); min-width: 52px; }

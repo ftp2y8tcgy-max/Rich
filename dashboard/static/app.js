@@ -1,4 +1,4 @@
-/* Day-Trader-Rennen – Oberfläche. Liest den Rennstand per Polling von /api/zustand. */
+/* Day-Trader-Rennen – Oberfläche. Das Rennen selbst läuft in engine.js in dieser Seite. */
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -51,41 +51,54 @@ function toast(text) {
   clearTimeout(toast.t);
   toast.t = setTimeout(() => t.classList.remove("zeigen"), 2600);
 }
-async function steuern(aktion, bot = null, wert = null) {
+/* Das Rennen läuft komplett in dieser Seite (engine.js). Kein Server nötig: auf dem iPad
+   darf die Python-App danach im Hintergrund schlafen. */
+let rennen = null;
+function rennenStarten(broker) {
+  const tempo = rennen ? rennen.tempo : 40;
+  rennen = new DTR.Rennen(window.DTR_DATEN, broker);
+  rennen.steuern("tempo", null, tempo);
+  rennen.steuern("start");
+  zustand.seq = 0; zustand.verlauf = {}; zustand.runde = 0; zustand.daten = null;
+  $("log").textContent = ""; zustand.logZeilen = 0;
+  try { localStorage.setItem("dtr-broker", broker); } catch (e) { /* privat: egal */ }
+}
+function steuern(aktion, bot = null, wert = null) {
   try {
-    const r = await fetch("/api/steuerung", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ aktion, bot, wert }),
-    });
-    if (!r.ok) throw new Error((await r.json()).fehler || r.status);
-    zustand.runde = 0;
-    holen();
+    if (aktion === "broker") rennenStarten(wert);
+    else rennen.steuern(aktion, bot, wert);
   } catch (e) {
     toast("Steuerung fehlgeschlagen: " + e.message);
   }
+  zustand.runde = 0;
+  holen();
+  return Promise.resolve();
 }
 
-/* ---------------- Polling ---------------- */
+/* ---------------- Takt und Anzeige ---------------- */
 let holenTimer = null;
-async function holen() {
+function holen() {
   clearTimeout(holenTimer);
-  const mitVerlauf = zustand.runde % 4 === 0;
-  try {
-    const r = await fetch(`/api/zustand?seit=${zustand.seq}${mitVerlauf ? "&verlauf=1" : ""}`, { cache: "no-store" });
-    const d = await r.json();
-    if (mitVerlauf) zustand.verlauf = d.verlauf;
-    if (d.rennen !== zustand.daten?.rennen) { $("log").textContent = ""; zustand.logZeilen = 0; }
-    zustand.daten = d;
-    zustand.seq = d.seq;
-    zustand.runde++;
-    if (zustand.fehler) { zustand.fehler = false; toast("Verbindung wieder da"); }
-    zeichnen(d, mitVerlauf);
-  } catch (e) {
-    if (!zustand.fehler) toast("Server nicht erreichbar – läuft start.py noch?");
-    zustand.fehler = true;
-  }
-  holenTimer = setTimeout(holen, 800);
+  const mitVerlauf = zustand.runde % 3 === 0;
+  const d = rennen.schnappschuss(zustand.seq, mitVerlauf);
+  if (mitVerlauf) zustand.verlauf = d.verlauf;
+  zustand.daten = d;
+  zustand.seq = d.seq;
+  zustand.runde++;
+  zeichnen(d, mitVerlauf);
+  holenTimer = setTimeout(holen, 700);
 }
+let letzterTakt = performance.now(), rest = 0;
+setInterval(() => {
+  const jetzt = performance.now();
+  const dt = Math.min(2, (jetzt - letzterTakt) / 1000);
+  letzterTakt = jetzt;
+  if (!rennen || !rennen.aktiv()) { rest = 0; return; }
+  rest += dt * rennen.tempo;
+  const n = Math.min(Math.floor(rest), 600);
+  rest -= n;
+  for (let i = 0; i < n; i++) rennen.schritt();
+}, 40);
 
 function zeichnen(d, mitVerlauf) {
   kopf(d);
@@ -104,6 +117,9 @@ function zeichnen(d, mitVerlauf) {
 
 /* ---------------- Kopf und KPIs ---------------- */
 function kopf(d) {
+  if (document.activeElement !== $("broker")) $("broker").value = d.broker.schluessel;
+  $("broker-text").textContent = d.broker.kurz;
+  $("fussnote").textContent = `Echtgeld-Simulation mit ${d.broker.name}: ${d.broker.text} EUR/USD ${zahl2.format(d.fx.kurs)} (${d.fx.quelle}). Keine Anlageberatung, keine echten Orders.`;
   $("tag-text").textContent = `Tag ${d.tag} · ${d.tag_text} · ${d.echt ? "echte Kurse" : "simuliert"}`;
   const out = $("tempo-wert");
   if (document.activeElement !== $("tempo")) {
@@ -117,7 +133,7 @@ function kpis(d) {
   const schlecht = bots.reduce((a, b) => (b.saldo < a.saldo ? b : a));
   const diff = (d.gesamt / d.start - 1) * 100;
   $("k-gesamt").textContent = eur.format(d.gesamt);
-  $("k-gesamt-d").innerHTML = `<span class="${diff >= 0 ? "auf" : "ab"}">${diff >= 0 ? "↑" : "↓"} ${prozent(diff)}</span> seit Start (${eur.format(d.start)})`;
+  $("k-gesamt-d").innerHTML = `<span class="${diff >= 0 ? "auf" : "ab"}">${diff >= 0 ? "↑" : "↓"} ${prozent(diff)}</span> · Kosten ${eur.format(d.kosten)}`;
   $("k-bester").textContent = eur.format(best.saldo);
   $("k-bester-d").textContent = `Bot ${best.id} · ${best.aktie} · ${best.profil}`;
   $("k-schlecht").textContent = eur.format(schlecht.saldo);
@@ -342,9 +358,9 @@ function trades(d) {
   const liste = [...d.trades].reverse();
   $("trade-liste").innerHTML = liste.length ? liste.map((t) => `
     <li><span class="avatar">${t.aktie.slice(0, 4)}</span>
-      <span class="t1">Bot ${t.bot} · ${t.grund === "Ziel" ? "🏁 Ziel" : t.grund === "Stop" ? "🛑 Stop" : "⏰ 15:55"}</span>
+      <span class="t1">Bot ${t.bot} · ${t.grund === "Ziel" ? "🏁 Ziel" : t.grund.startsWith("Stop") ? "🛑 " + t.grund : "⏰ 15:55"}</span>
       <span class="betrag ${t.ergebnis >= 0 ? "auf" : "ab"}">${t.ergebnis >= 0 ? "+" : "−"}${eur.format(Math.abs(t.ergebnis))}<br><small>${t.r >= 0 ? "+" : ""}${zahl2.format(t.r)} R</small></span>
-      <span class="t2">${t.tag} · ${t.zeit}–${t.ende} · ${usd.format(t.einstieg)} → ${usd.format(t.ausstieg)}</span></li>`).join("")
+      <span class="t2">${t.tag} · ${t.zeit}–${t.ende} · ${usd.format(t.einstieg)} → ${usd.format(t.ausstieg)} · Kosten ${eur.format(t.kosten)}</span></li>`).join("")
     : `<li><span class="avatar">…</span><span class="t1">Noch keine Trades</span><span></span><span class="t2">Start drücken: die Bots warten auf den Ausbruch aus der Eröffnungsspanne.</span></li>`;
 }
 function logAnhaengen(ereignisse) {
@@ -393,7 +409,7 @@ function donut(d) {
 function laufband(d) {
   $("laufband").innerHTML = d.aktien.map((a, i) =>
     `<span><i style="background:${AKTIEN_FARBEN[i]}"></i><b>${a.sym}</b> ${usd.format(a.kurs)} · ${a.echte_tage} echte Tage (${a.quelle})</span>`).join("")
-    + `<span>Kerze ${d.uhr} NY · Tempo ${Math.round(d.tempo)}/s</span>`;
+    + `<span>EUR/USD <b>${zahl2.format(d.fx.kurs)}</b></span><span>Kerze ${d.uhr} NY · Tempo ${Math.round(d.tempo)}/s</span>`;
 }
 
 /* ---------------- HUD mit Weltkugel (Bild 3) ---------------- */
@@ -505,10 +521,10 @@ async function detailOeffnen(id) {
 }
 async function detailLaden(id) {
   try {
-    const d = await (await fetch(`/api/bot/${id}`, { cache: "no-store" })).json();
+    const d = rennen.details(id);
     if (zustand.detailId !== id) return;
     $("d-titel").textContent = `Bot ${d.id} · ${d.aktie}`;
-    $("d-sub").textContent = `${d.wallet} · ${d.profil} (${d.profil_kurz}) · Daten: ${d.quelle}`;
+    $("d-sub").textContent = `${d.wallet} · ${d.profil} (${d.profil_kurz}) · ${d.broker} · Kurse: ${d.quelle}`;
     $("d-umschalten").textContent = d.modus === "Läuft" ? "❚❚ Pause" : "▶ Start";
     $("d-umschalten").disabled = d.status === "Ziel erreicht" || d.status === "Pleite";
     $("d-umschalten").onclick = () => steuern("umschalten", d.id).then(() => detailLaden(d.id));
@@ -516,7 +532,7 @@ async function detailLaden(id) {
     const zahlen = [
       ["Kontostand", eur.format(d.saldo)], ["seit Start", prozent((d.saldo / 10 - 1) * 100)],
       ["Status", d.status], ["Trades", `${d.trades.length} (${gew} im Plus)`],
-      ["bis 1.000 €", zahl2.format(fortschritt(d.saldo)) + " %"],
+      ["Kosten bisher", eur.format(d.kosten)],
     ];
     $("d-zahlen").innerHTML = zahlen.map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join("");
     $("d-kerzen-titel").textContent = `${d.tag_text} · ${d.echt ? "echte Kerzen" : "simuliert"} · Eröffnungsspanne, Einstieg, Stop, Ziel`;
@@ -525,9 +541,10 @@ async function detailLaden(id) {
     $("d-trades").innerHTML = [...d.trades].reverse().map((t) => `<tr>
       <td>${t.tag}</td><td>${t.zeit}–${t.ende}</td><td>${t.aktie}</td><td class="zahl">${zahl2.format(t.menge)}</td>
       <td class="zahl">${usd.format(t.einstieg)}</td><td class="zahl">${usd.format(t.ausstieg)}</td><td>${t.grund}</td>
+      <td class="zahl">${eur.format(t.kosten)}</td>
       <td class="zahl ${t.r >= 0 ? "auf" : "ab"}">${zahl2.format(t.r)}</td>
       <td class="zahl ${t.ergebnis >= 0 ? "auf" : "ab"}">${t.ergebnis >= 0 ? "+" : "−"}${eur.format(Math.abs(t.ergebnis))}</td></tr>`).join("")
-      || `<tr><td colspan="9">Noch keine abgeschlossenen Trades.</td></tr>`;
+      || `<tr><td colspan="10">Noch keine abgeschlossenen Trades.</td></tr>`;
   } catch (e) { /* nächster Versuch beim nächsten Takt */ }
 }
 function kerzenChart(d) {
@@ -545,7 +562,7 @@ function kerzenChart(d) {
   const Y = (v) => pad.t + (1 - (v - lo) / (hi - lo)) * (h - pad.t - pad.b);
   const bw = Math.max(1.5, ((w - pad.l - pad.r) / 78) * 0.65);
   if (d.spanne) {
-    const n = { Früh: 1, Geduld: 6 }[d.profil] || 3;
+    const n = d.or_n;
     svg.appendChild(el("rect", { x: X(0) - bw, y: Y(d.spanne[0]), width: X(n - 1) - X(0) + 2 * bw, height: Y(d.spanne[1]) - Y(d.spanne[0]), fill: "rgba(244,183,64,.12)", stroke: "rgba(244,183,64,.5)" }));
     svg.appendChild(el("line", { x1: X(0), x2: w - pad.r, y1: Y(d.spanne[0]), y2: Y(d.spanne[0]), stroke: "rgba(244,183,64,.35)", "stroke-dasharray": "2 3" }));
   }
@@ -555,7 +572,8 @@ function kerzenChart(d) {
     svg.appendChild(el("rect", { x: X(i) - bw / 2, y: Y(Math.max(b.o, b.c)), width: bw, height: Math.max(1, Math.abs(Y(b.o) - Y(b.c))), fill: farbe }));
   });
   if (pos) {
-    for (const [wert, farbe, text] of [[pos.ziel, "#3ddc97", "Ziel"], [pos.einstieg, "#ffd77a", "Einstieg"], [pos.stop, "#ff5f5f", "Stop"]]) {
+    const kauf = pos.fuellUSD || pos.einstieg;   // tatsächlicher Ausführungspreis, sonst der Plan
+    for (const [wert, farbe, text] of [[pos.ziel, "#3ddc97", "Ziel"], [kauf, "#ffd77a", pos.fuellUSD ? "Kauf" : "Signal"], [pos.stop, "#ff5f5f", "Stop"]]) {
       svg.appendChild(el("line", { x1: pad.l, x2: w - pad.r, y1: Y(wert), y2: Y(wert), stroke: farbe, "stroke-dasharray": "5 4" }));
       svg.appendChild(el("text", { x: w - pad.r + 4, y: Y(wert) + 4, fill: farbe, "font-size": 10, "font-family": "monospace" }, `${text} ${wert.toFixed(2)}`));
     }
@@ -611,6 +629,10 @@ $("v-tabs").addEventListener("click", (e) => {
   for (const x of $("v-tabs").children) x.classList.toggle("an", x === b);
   verlaufChart();
 });
+$("broker").addEventListener("change", (e) => {
+  steuern("broker", null, e.target.value);
+  toast("Neues Rennen mit " + DTR.BROKER[e.target.value].name);
+});
 $("d-zu").addEventListener("click", () => $("detail").close());
 $("detail").addEventListener("close", () => { zustand.detailId = null; });
 $("detail").addEventListener("click", (e) => { if (e.target === $("detail")) $("detail").close(); });
@@ -619,5 +641,14 @@ document.querySelectorAll(".seitenleiste nav a").forEach((a) => a.addEventListen
   document.querySelectorAll(".seitenleiste nav a").forEach((x) => x.classList.toggle("aktiv", x === a));
 }));
 
-holen();
-requestAnimationFrame(schleife);
+if (!window.DTR_DATEN) {
+  document.body.insertAdjacentHTML("afterbegin", '<p style="padding:20px;color:#ff5f5f">Keine Kursdaten eingebettet. Bitte die Seite über day_trader_rennen.py öffnen.</p>');
+} else {
+  let broker = "alpaca";
+  try { broker = localStorage.getItem("dtr-broker") || broker; } catch (e) { /* egal */ }
+  const auswahl = $("broker");
+  for (const [k, b] of Object.entries(DTR.BROKER)) auswahl.add(new Option(b.name, k));
+  rennenStarten(broker in DTR.BROKER ? broker : "alpaca");
+  holen();
+  requestAnimationFrame(schleife);
+}

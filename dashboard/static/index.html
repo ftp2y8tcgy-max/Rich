@@ -27,13 +27,16 @@
   <header class="kopf">
     <div>
       <h1>Day-Trader-Rennen <span class="winken">⚡</span></h1>
-      <p class="unterzeile">25 Bots · je 10 € · Ziel 1.000 € · Regeln aus <b>day-trader-skill</b> · Spielgeld</p>
+      <p class="unterzeile">25 Bots · je 10 € · Ziel 1.000 € · Regeln aus <b>day-trader-skill</b> · Echtgeld-Simulation: <span id="broker-text">–</span></p>
     </div>
     <div class="kopf-rechts">
       <div class="pille" id="tag-pille" title="Handelstag">
         <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
         <span id="tag-text">–</span>
       </div>
+      <label class="broker-wahl" title="Broker-Modell für die Echtgeld-Simulation">
+        <span>Broker</span><select id="broker"></select>
+      </label>
       <div class="steuerung">
         <button class="knopf gold" data-aktion="start" title="Alle starten">▶<span> Start</span></button>
         <button class="knopf" data-aktion="pause" title="Alle pausieren">❚❚<span> Pause</span></button>
@@ -112,7 +115,8 @@
 
   <footer class="laufband">
     <div id="laufband"></div>
-    <p>Spielgeld-Simulation. Keine Anlageberatung. Echte Kerzen von Yahoo (60 Tage), danach simulierte Tage nach Art der Time Machine. Bruchstück-Aktien, kein Hebel, Wechselkurs nicht berücksichtigt.</p>
+    <p id="fussnote">–</p>
+    <p>Echte Fünf-Minuten-Kerzen von Yahoo (60 Tage), danach simulierte Tage nach Art der Time Machine. Kein Hebel.</p>
   </footer>
 </main>
 
@@ -127,10 +131,11 @@
     <div><h3>Kontostand</h3><svg id="d-konto" class="chart" preserveAspectRatio="none"></svg></div>
   </div>
   <h3>Trade-Historie</h3>
-  <div class="tabelle-wrap"><table><thead><tr><th>Tag</th><th>Zeit</th><th>Aktie</th><th>Menge</th><th>Einstieg</th><th>Ausstieg</th><th>Grund</th><th>R</th><th>Ergebnis</th></tr></thead><tbody id="d-trades"></tbody></table></div>
+  <div class="tabelle-wrap"><table><thead><tr><th>Tag</th><th>Zeit</th><th>Aktie</th><th>Menge</th><th>Einstieg</th><th>Ausstieg</th><th>Grund</th><th>Kosten</th><th>R</th><th>Ergebnis</th></tr></thead><tbody id="d-trades"></tbody></table></div>
 </dialog>
 
 <div id="toast" role="status"></div>
+<script src="/static/engine.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
