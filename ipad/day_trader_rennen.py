@@ -7,6 +7,8 @@ Ziel: 1.000 €. Spielgeld, keine Anlageberatung, nichts geht an einen Broker.
 
 So startest du es
   Pythonista 3 oder Pyto: Datei öffnen, ▶ drücken. Das Dashboard öffnet sich in der App.
+  andere Python-Apps:     ▶/Ausführen. Der Stand erscheint alle 5 Sekunden als Text in der Ausgabe;
+                          das Dashboard gibt es zusätzlich unter der angezeigten Adresse in Safari.
   a-Shell:                python3 day_trader_rennen.py  → dann die angezeigte Adresse in Safari öffnen
                           (iOS hält a-Shell im Hintergrund nach kurzer Zeit an: zwischendurch zurückwechseln)
   Mac/PC:                 python3 day_trader_rennen.py  → öffnet den Browser
@@ -1523,12 +1525,15 @@ CACHE_STUNDEN = 12
 
 
 def _cache_ordner():
-    for basis in (os.path.dirname(os.path.abspath(__file__)), os.path.expanduser("~"), os.getcwd()):
+    # manche iPad-Apps führen die Datei als Text aus: dann gibt es kein __file__
+    datei = globals().get("__file__")
+    kandidaten = ([os.path.dirname(os.path.abspath(datei))] if datei else []) + [os.path.expanduser("~"), os.getcwd()]
+    for basis in kandidaten:
         ordner = os.path.join(basis, "day_trader_cache")
         try:
             os.makedirs(ordner, exist_ok=True)
             return ordner
-        except OSError:
+        except (OSError, ValueError):
             continue
     return None
 
@@ -1818,6 +1823,7 @@ class Rennen:
         """Eine Kerze für alle Bots. Nach der 15:55-Kerze beginnt der nächste Handelstag."""
         neu = []
         with self.lock:
+            zeit = self.uhrzeit_text()  # Zeit der Kerze, bevor die Uhr weiterspringt
             tage = {m.sym: m.tag(self.tag_index) for m in self.maerkte}
             for bot in self.bots:
                 text, _, kerzen = tage[bot.markt.sym]
@@ -1830,7 +1836,7 @@ class Rennen:
                 self.tag_index += 1
                 self.slot = 0
             for art, bid, text in neu:
-                self._log(art, bid, text)
+                self._log(art, bid, text, zeit)
             self._uhr()
 
     def _schleife(self):
@@ -1851,16 +1857,16 @@ class Rennen:
             else:
                 naechster = time.monotonic()
 
-    def _log(self, art, bot_id, text):
+    def _log(self, art, bot_id, text, zeit=None):
         self.seq += 1
         self.ereignisse.append({"seq": self.seq, "art": art, "bot": bot_id, "text": text,
-                                "zeit": self.uhrzeit_text()})
+                                "zeit": zeit or self.uhrzeit_text()})
 
     # ---------- Ausgabe ----------
 
     def uhrzeit_text(self):
         text, echt, _ = self.maerkte[0].tag(self.tag_index)
-        return f"{text} {_uhr(min(self.slot, SESSION_BARS - 1))}"
+        return f"{text} {_uhr(self.slot + 1)}"
 
     def laufzeit_s(self):
         return self.laufzeit + (time.time() - self._seit if self._seit else 0)
@@ -3109,6 +3115,27 @@ def in_app_anzeigen(url):
     return False
 
 
+def text_stand(rennen, seit):
+    """Rennstand als Text für die Ausgabe der App. Gibt die neue Ereignisnummer zurück."""
+    s = rennen.schnappschuss(seit)
+    rang = sorted(s["bots"], key=lambda b: b["saldo"], reverse=True)
+    def euro(x):
+        return f"{x:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+    zeilen = ["", "─" * 44,
+              f"Tag {s['tag']} ({s['tag_text']}, {'echt' if s['echt'] else 'simuliert'}) · {s['uhr']} New York",
+              f"Gesamt {euro(s['gesamt'])} von {euro(s['start'])} · Ziel {s['ziel']}/25 · Pleite {s['pleite']}/25"
+              f" · offen {s['offen']}"]
+    for i, b in enumerate(rang[:5], 1):
+        zeilen.append(f"  {i}. Bot {b['id']:2} {b['aktie']:5} {b['profil']:9} {euro(b['saldo']):>12}  {b['trades']} Trades")
+    letzte = rang[-1]
+    zeilen.append(f"  … Letzter: Bot {letzte['id']} {letzte['aktie']} {letzte['profil']} {euro(letzte['saldo'])}")
+    wichtig = [e for e in s["ereignisse"] if e["art"] in ("verkauf", "ziel", "pleite", "info")]
+    for e in wichtig[-4:]:
+        zeilen.append(f"  {e['zeit']}  {e['text']}")
+    print("\n".join(zeilen), flush=True)
+    return s["seq"]
+
+
 def lan_adresse():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -3126,6 +3153,7 @@ def main():
     p.add_argument("--tempo", type=float, default=40)
     p.add_argument("--kein-browser", action="store_true")
     p.add_argument("--wlan", action="store_true", help="auch für andere Geräte im WLAN erreichbar")
+    p.add_argument("--textintervall", type=float, default=5, help="Sekunden zwischen Textmeldungen")
     a, _ = p.parse_known_args()  # Pythonista und Pyto übergeben manchmal eigene Argumente
 
     aktien = [s.strip().upper() for s in a.aktien.split(",") if s.strip()]
@@ -3143,27 +3171,40 @@ def main():
     rennen.starten_thread()
     rennen.steuern("start")
 
-    srv = freier_server(rennen, "0.0.0.0" if a.wlan else "127.0.0.1", a.port)
-    port = srv.server_address[1]
-    threading.Thread(target=srv.serve_forever, daemon=True, name="Webserver").start()
-    url = f"http://127.0.0.1:{port}/"
-    print(f"\nDashboard: {url}")
-    if a.wlan and lan_adresse():
-        print(f"Im WLAN:   http://{lan_adresse()}:{port}/")
+    srv = None
     try:
-        if not a.kein_browser and in_app_anzeigen(url):
+        srv = freier_server(rennen, "0.0.0.0" if a.wlan else "127.0.0.1", a.port)
+    except (OSError, SystemExit) as fehler:
+        print(f"Webserver nicht möglich ({fehler}): zeige das Rennen nur als Text.")
+    url = None
+    if srv:
+        port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True, name="Webserver").start()
+        url = f"http://127.0.0.1:{port}/"
+        print(f"\nDashboard: {url}")
+        if a.wlan and lan_adresse():
+            print(f"Im WLAN:   http://{lan_adresse()}:{port}/")
+    try:
+        if url and not a.kein_browser and in_app_anzeigen(url):
             return
-        if not a.kein_browser:
-            webbrowser.open(url)
-        print("Läuft. Beenden mit Strg+C oder dem Stopp-Knopf der App.")
+        if url and not a.kein_browser:
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+            print("Falls sich kein Browser öffnet: Adresse oben in Safari öffnen. Der Stand kommt auch hier als Text.")
+        print("Beenden mit dem Stopp-Knopf der App (oder Strg+C).")
+        seit = 0
         while True:
-            time.sleep(1)
+            seit = text_stand(rennen, seit)
+            time.sleep(a.textintervall)
     except KeyboardInterrupt:
         pass
     finally:
         rennen.beenden()
-        srv.shutdown()
-        srv.server_close()
+        if srv:
+            srv.shutdown()
+            srv.server_close()
         print("Beendet.")
 
 

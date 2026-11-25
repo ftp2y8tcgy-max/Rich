@@ -265,6 +265,7 @@ class Rennen:
         """Eine Kerze für alle Bots. Nach der 15:55-Kerze beginnt der nächste Handelstag."""
         neu = []
         with self.lock:
+            zeit = self.uhrzeit_text()  # Zeit der Kerze, bevor die Uhr weiterspringt
             tage = {m.sym: m.tag(self.tag_index) for m in self.maerkte}
             for bot in self.bots:
                 text, _, kerzen = tage[bot.markt.sym]
@@ -277,7 +278,7 @@ class Rennen:
                 self.tag_index += 1
                 self.slot = 0
             for art, bid, text in neu:
-                self._log(art, bid, text)
+                self._log(art, bid, text, zeit)
             self._uhr()
 
     def _schleife(self):
@@ -298,16 +299,16 @@ class Rennen:
             else:
                 naechster = time.monotonic()
 
-    def _log(self, art, bot_id, text):
+    def _log(self, art, bot_id, text, zeit=None):
         self.seq += 1
         self.ereignisse.append({"seq": self.seq, "art": art, "bot": bot_id, "text": text,
-                                "zeit": self.uhrzeit_text()})
+                                "zeit": zeit or self.uhrzeit_text()})
 
     # ---------- Ausgabe ----------
 
     def uhrzeit_text(self):
         text, echt, _ = self.maerkte[0].tag(self.tag_index)
-        return f"{text} {_uhr(min(self.slot, SESSION_BARS - 1))}"
+        return f"{text} {_uhr(self.slot + 1)}"
 
     def laufzeit_s(self):
         return self.laufzeit + (time.time() - self._seit if self._seit else 0)
