@@ -8,6 +8,8 @@ Ungültige Antwort oder Ausfall bedeutet: halten.
 import json
 import os
 import re
+import sys
+import urllib.error
 import urllib.request
 
 from krypto.strategien import COINS, TREND_DURCHSCHNITT
@@ -90,6 +92,20 @@ def http_client(nachrichten):
         return json.load(antwort)["choices"][0]["message"]["content"]
 
 
+def _ausfall_text(fehler):
+    """Kurzer Grund für den Bericht. Die Fehlermeldung des Anbieters geht nur ins Log, nie der Schlüssel."""
+    if isinstance(fehler, KeinSchluessel):
+        return "Ausfall: kein LLM_API_KEY hinterlegt"
+    if isinstance(fehler, urllib.error.HTTPError):
+        try:
+            koerper = fehler.read().decode("utf-8", "replace")[:500]
+        except Exception:
+            koerper = ""
+        print(f"KI-Anbieter antwortet HTTP {fehler.code}: {koerper}", file=sys.stderr)
+        return f"Ausfall: HTTP {fehler.code}"
+    return f"Ausfall: {type(fehler).__name__}"
+
+
 def entscheiden(kurse, depot, zeit, client=http_client):
     """Liefert Ziel-Coin, None (Bargeld) oder HALTEN und vermerkt die Entscheidung im Depot."""
     nachrichten = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": eingabe(kurse, depot)}]
@@ -97,7 +113,7 @@ def entscheiden(kurse, depot, zeit, client=http_client):
         antwort = client(nachrichten)
     except Exception as fehler:  # Netz, HTTP, Kontingent, fehlender Schlüssel: alles heißt halten
         depot["ki_ausfaelle"] += 1
-        depot["letzte_entscheidung"] = {"zeit": zeit, "entscheidung": "halten", "begruendung": "Ausfall: kein LLM_API_KEY hinterlegt" if isinstance(fehler, KeinSchluessel) else f"Ausfall: {type(fehler).__name__}"}
+        depot["letzte_entscheidung"] = {"zeit": zeit, "entscheidung": "halten", "begruendung": _ausfall_text(fehler)}
         return HALTEN
     gueltig, ziel, begruendung = auswerten(antwort)
     if not gueltig:
