@@ -65,9 +65,13 @@
 - `EINRICHTUNG-KRYPTO.md` benennt jeden Klick: kostenlosen Groq-Schlüssel anlegen, Secret `LLM_API_KEY` hinterlegen, Standard-Branch umstellen, ersten Lauf manuell starten, Bericht öffnen.
 - README verlinkt Bericht und Anleitung.
 - Suche in Repo und Git-Verlauf findet keine API-Schlüssel (AC-3).
-**Verification:** `python3 -c "import yaml,sys; d=yaml.safe_load(open('.github/workflows/krypto-bot.yml')); assert d[True]['schedule'] and 'workflow_dispatch' in d[True]" && bash krypto/veroeffentlichen.sh --trockenlauf && git log -p --all | grep -niE "gsk_[A-Za-z0-9]{20}|sk-[A-Za-z0-9]{20}" ; test $? -eq 1`
+**Verification:** `python3 -c "import yaml,sys; d=yaml.safe_load(open('.github/workflows/krypto-bot.yml')); assert d[True]['schedule'] and 'workflow_dispatch' in d[True]" && bash krypto/veroeffentlichen.sh --trockenlauf && git log -p --all | grep -iE "gsk_[A-Za-z0-9]{20}|sk-[A-Za-z0-9]{20}" | grep -v gsk_GEHEIM1234567890abcdef ; test $? -eq 1`
+**Plan correction:** Die Schlüsselsuche nimmt die offensichtliche Test-Attrappe `gsk_GEHEIM1234567890abcdef` aus, die mit Slice 2 in den Verlauf kam; der Verlauf wird nicht umgeschrieben.
 **Depends on:** Slice 3
 **Touches:** `.github/workflows/krypto-bot.yml`, `krypto/veroeffentlichen.sh`, `EINRICHTUNG-KRYPTO.md`, `README.md`
+**Status:** complete
+**Evidence:** neu `.github/workflows/krypto-bot.yml` (stündlich Minute 7, `workflow_dispatch`, `contents: write`, `concurrency`, Secret nur als Env), `krypto/veroeffentlichen.sh`, `EINRICHTUNG-KRYPTO.md`, `README.md`, `.gitignore`. YAML-Prüfung OK; `--trockenlauf` baut einen Commit mit den 3 Dateien und bricht bei fehlender Datei mit Exit 1 ab; Rundlauf gegen ein lokales Bare-Repo: veröffentlichen → laden ergibt identische Dateien, der Daten-Branch bleibt bei 1 Commit; ohne Daten-Branch meldet `laden` „neues Rennen“. Schlüsselsuche in Repo und Verlauf: einziger Treffer ist die Test-Attrappe `gsk_GEHEIM…` aus Slice 2 (jetzt ersetzt, bleibt im Verlauf, kein echter Schlüssel). 30 Tests OK.
+**Risks / next:** Workflow läuft erst nach Merge nach `main` und Umstellung des Standard-Branchs (Checkpoint).
 **Checkpoint after:** human-action
 **Checkpoint reason:** Der Nutzer muss (1) einen kostenlosen LLM-Schlüssel anlegen und als Secret `LLM_API_KEY` hinterlegen und (2) den Standard-Branch des Repos auf `main` umstellen, nachdem dieser PR gemergt ist. Achtung: Mit der Umstellung stoppt der Zeitplan des SPY-Bots auf `claude/lucid-archimedes-729smm`, bis dieser ebenfalls nach `main` kommt. Ohne Schlüssel läuft das Rennen trotzdem, der KI-Händler hält dann nur.
 

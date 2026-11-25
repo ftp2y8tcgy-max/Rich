@@ -64,7 +64,7 @@ class KiTest(unittest.TestCase):
         self.assertIn("kein LLM_API_KEY", self.dep["letzte_entscheidung"]["begruendung"])
 
     def test_schluessel_nie_im_depot(self):
-        geheim = "gsk_GEHEIM1234567890abcdef"
+        geheim = "test-schluessel-nicht-echt-123"
         with mock.patch.dict(os.environ, {"LLM_API_KEY": geheim, "LLM_BASE_URL": "http://127.0.0.1:9"}):
             ki.entscheiden(kurse(), self.dep, "t1")
         self.assertNotIn(geheim, repr(self.dep))
