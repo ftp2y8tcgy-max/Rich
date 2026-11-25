@@ -1,6 +1,6 @@
 """KI-Händler: ein Sprachmodell entscheidet über eine OpenAI-kompatible Chat-Schnittstelle.
 
-Standard ist Groq (kostenloses Kontingent). Umstellbar über LLM_BASE_URL und LLM_MODEL;
+Standard ist Groq (kostenloses Kontingent) mit automatischer Modellwahl. Umstellbar über LLM_BASE_URL und LLM_MODEL;
 der Schlüssel kommt nur aus der Umgebungsvariable LLM_API_KEY und wird nie ausgegeben.
 Ungültige Antwort oder Ausfall bedeutet: halten.
 """
@@ -16,7 +16,10 @@ from krypto.strategien import COINS, TREND_DURCHSCHNITT
 
 HALTEN = "__halten__"
 STANDARD_BASIS = "https://api.groq.com/openai/v1"
-STANDARD_MODELL = "llama-3.3-70b-versatile"
+# Ohne LLM_MODEL wählt der Bot aus der Modellliste des Anbieters: erst passende Namen in dieser
+# Reihenfolge, sonst das erste Chat-Modell. So überlebt er abgeschaltete Modelle.
+MODELL_VORLIEBEN = ("gpt-oss-120b", "llama-4-maverick", "llama-3.3-70b", "70b", "gpt-oss", "llama")
+KEIN_CHAT = ("whisper", "tts", "guard", "embed", "playai", "orpheus", "distil", "compound")
 ZEITLIMIT = 30
 
 SYSTEM = (
@@ -76,15 +79,9 @@ class KeinSchluessel(Exception):
     pass
 
 
-def http_client(nachrichten):
-    schluessel = os.environ.get("LLM_API_KEY")
-    if not schluessel:
-        raise KeinSchluessel()
-    basis = os.environ.get("LLM_BASE_URL") or STANDARD_BASIS
-    modell = os.environ.get("LLM_MODEL") or STANDARD_MODELL
-    daten = json.dumps({"model": modell, "messages": nachrichten, "temperature": 0}).encode()
+def _anfrage(url, schluessel, daten=None):
     anfrage = urllib.request.Request(
-        basis.rstrip("/") + "/chat/completions",
+        url,
         data=daten,
         headers={
             "Authorization": f"Bearer {schluessel}",
@@ -94,7 +91,32 @@ def http_client(nachrichten):
         },
     )
     with urllib.request.urlopen(anfrage, timeout=ZEITLIMIT) as antwort:
-        return json.load(antwort)["choices"][0]["message"]["content"]
+        return json.load(antwort)
+
+
+def modell_waehlen(ids):
+    chat = [m for m in ids if not any(w in m.lower() for w in KEIN_CHAT)]
+    for vorliebe in MODELL_VORLIEBEN:
+        treffer = sorted(m for m in chat if vorliebe in m.lower())
+        if treffer:
+            return treffer[0]
+    if chat:
+        return sorted(chat)[0]
+    raise RuntimeError("kein Chat-Modell verfügbar")
+
+
+def http_client(nachrichten):
+    schluessel = os.environ.get("LLM_API_KEY")
+    if not schluessel:
+        raise KeinSchluessel()
+    basis = (os.environ.get("LLM_BASE_URL") or STANDARD_BASIS).rstrip("/")
+    modell = os.environ.get("LLM_MODEL")
+    if not modell:
+        liste = _anfrage(basis + "/models", schluessel)
+        modell = modell_waehlen([m["id"] for m in liste.get("data", []) if m.get("active", True)])
+    print(f"KI-Modell: {modell}", file=sys.stderr)
+    daten = json.dumps({"model": modell, "messages": nachrichten, "temperature": 0}).encode()
+    return _anfrage(basis + "/chat/completions", schluessel, daten)["choices"][0]["message"]["content"]
 
 
 def _ausfall_text(fehler):

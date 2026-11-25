@@ -30,7 +30,7 @@ Ohne Schlüssel läuft das Rennen trotzdem, nur der KI-Händler hält dann jede 
 4. **Secret:** den kopierten Schlüssel einfügen.
 5. **Add secret**.
 
-Optional, für einen anderen Anbieter mit OpenAI-kompatibler Schnittstelle: Im Reiter **Variables** derselben Seite `LLM_BASE_URL` (z. B. `https://openrouter.ai/api/v1`) und `LLM_MODEL` anlegen. Ohne diese Variablen gilt Groq mit `llama-3.3-70b-versatile`.
+Optional, für einen anderen Anbieter mit OpenAI-kompatibler Schnittstelle: Im Reiter **Variables** derselben Seite `LLM_BASE_URL` (z. B. `https://openrouter.ai/api/v1`) und `LLM_MODEL` anlegen. Ohne diese Variablen nutzt der Bot Groq und wählt selbst ein verfügbares Chat-Modell (welches, steht im Actions-Log unter „KI-Modell“).
 
 ## 4. Ersten Lauf starten
 

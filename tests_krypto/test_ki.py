@@ -75,8 +75,35 @@ class KiTest(unittest.TestCase):
         self.assertNotIn(geheim, repr(self.dep))
         self.assertEqual(self.dep["ki_ausfaelle"], 1)
 
-    def test_http_client_setzt_user_agent(self):
-        gesendet = {}
+    def test_http_client_waehlt_modell_und_setzt_user_agent(self):
+        gesendet = []
+
+        class Antwort:
+            def __init__(self, koerper):
+                self.koerper = koerper
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return self.koerper
+
+        def urlopen(anfrage, timeout):
+            gesendet.append((anfrage.full_url, anfrage.get_header("User-agent"), anfrage.data))
+            if anfrage.full_url.endswith("/models"):
+                return Antwort(b'{"data": [{"id": "whisper-large-v3"}, {"id": "llama-3.1-8b-instant"}, {"id": "openai/gpt-oss-120b"}]}')
+            return Antwort(b'{"choices": [{"message": {"content": "ENTSCHEIDUNG: halten"}}]}')
+
+        with mock.patch.dict(os.environ, {"LLM_API_KEY": "test"}, clear=True), mock.patch("urllib.request.urlopen", urlopen):
+            self.assertEqual(ki.http_client([]), "ENTSCHEIDUNG: halten")
+        self.assertTrue(all(ua.startswith("krypto-wettrennen") for _, ua, _ in gesendet))
+        self.assertIn(b'"model": "openai/gpt-oss-120b"', gesendet[1][2])
+
+    def test_modell_aus_umgebung_ohne_liste(self):
+        urls = []
 
         class Antwort:
             def __enter__(self):
@@ -86,15 +113,21 @@ class KiTest(unittest.TestCase):
                 return False
 
             def read(self):
-                return b'{"choices": [{"message": {"content": "ENTSCHEIDUNG: halten"}}]}'
+                return b'{"choices": [{"message": {"content": "x"}}]}'
 
         def urlopen(anfrage, timeout):
-            gesendet["ua"] = anfrage.get_header("User-agent")
+            urls.append(anfrage.full_url)
             return Antwort()
 
-        with mock.patch.dict(os.environ, {"LLM_API_KEY": "test"}), mock.patch("urllib.request.urlopen", urlopen):
-            self.assertEqual(ki.http_client([]), "ENTSCHEIDUNG: halten")
-        self.assertTrue(gesendet["ua"].startswith("krypto-wettrennen"))
+        with mock.patch.dict(os.environ, {"LLM_API_KEY": "test", "LLM_MODEL": "mein-modell"}, clear=True), mock.patch("urllib.request.urlopen", urlopen):
+            ki.http_client([])
+        self.assertEqual(len(urls), 1)
+
+    def test_modell_waehlen(self):
+        self.assertEqual(ki.modell_waehlen(["llama-3.1-8b-instant", "meta-llama/llama-4-maverick-17b"]), "meta-llama/llama-4-maverick-17b")
+        self.assertEqual(ki.modell_waehlen(["whisper-large-v3", "qwen3-32b"]), "qwen3-32b")
+        with self.assertRaises(RuntimeError):
+            ki.modell_waehlen(["whisper-large-v3", "llama-guard-4"])
 
     def test_eingabe_enthaelt_kennzahlen(self):
         text = ki.eingabe(kurse(), self.dep)
