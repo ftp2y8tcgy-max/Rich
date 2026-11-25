@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "7 * * * *"  # stündlich, Minute 7 (zur vollen Stunde verspäten sich GitHub-Zeitpläne oft)
   workflow_dispatch:
+    inputs:
+      neues_rennen:
+        description: "Rennen neu starten (alle Depots wieder 10 €)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -30,7 +35,7 @@ jobs:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
-        run: python3 -m krypto.lauf --daten daten
+        run: python3 -m krypto.lauf --daten daten ${{ inputs.neues_rennen && '--neues-rennen' || '' }}
 
       - name: Zustand und Bericht veröffentlichen
         run: bash krypto/veroeffentlichen.sh veroeffentlichen

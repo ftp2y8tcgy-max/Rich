@@ -1,6 +1,6 @@
 """Ein stündlicher Lauf: Kurse holen, alle Strategien handeln lassen, Zustand und Bericht schreiben.
 
-Aufruf: python3 -m krypto.lauf [--daten DIR] [--kurse-datei DATEI] [--zeit ISO]
+Aufruf: python3 -m krypto.lauf [--daten DIR] [--kurse-datei DATEI] [--zeit ISO] [--neues-rennen]
 """
 
 import argparse
@@ -69,6 +69,7 @@ def main(argv=None, ki_client=ki.http_client):
     p.add_argument("--daten", default="daten")
     p.add_argument("--kurse-datei", help="Testmodus: Kurse aus JSON-Datei statt von Kraken")
     p.add_argument("--zeit", help="Zeitpunkt (ISO), Standard: jetzt")
+    p.add_argument("--neues-rennen", action="store_true", help="Rennen neu starten (alle Depots wieder 10 €, nächste Rennnummer)")
     a = p.parse_args(argv)
     zeit = a.zeit or datetime.now(timezone.utc).replace(second=0, microsecond=0).isoformat()
     try:
@@ -80,7 +81,11 @@ def main(argv=None, ki_client=ki.http_client):
     except Exception as fehler:
         print(f"Kursabruf fehlgeschlagen: {type(fehler).__name__}: {fehler}", file=sys.stderr)
         return 1
-    zustand = laden(a.daten) or neues_rennen(zeit)
+    zustand = laden(a.daten)
+    if zustand is None:
+        zustand = neues_rennen(zeit)
+    elif a.neues_rennen:
+        zustand = neues_rennen(zeit, zustand["rennen"] + 1)
     handeln(zustand, kurse, zeit, ki_client)
     speichern(a.daten, zustand)
     print(f"Lauf {zeit}: " + ", ".join(f"{n} {zustand['depots'][n]['wert']:.2f} €" for n in REIHENFOLGE))

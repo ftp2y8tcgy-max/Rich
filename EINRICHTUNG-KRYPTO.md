@@ -48,5 +48,5 @@ Am Handy am besten als Lesezeichen speichern. Der Branch `krypto-daten` enthält
 
 - **Veraltete Zeit bei „Letzter Lauf“:** Läufe schlagen fehl oder sind gestoppt. GitHub schickt bei fehlgeschlagenen geplanten Läufen eine E-Mail. Details unter **Actions**.
 - **E-Mail „scheduled workflow disabled“:** GitHub pausiert Zeitpläne in öffentlichen Repos nach 60 Tagen ohne Aktivität. Unter **Actions → Krypto-Wettrennen** auf **Enable workflow** klicken.
-- **Neues Rennen starten:** Branch `krypto-daten` löschen (https://github.com/ftp2y8tcgy-max/Rich/branches). Der nächste Lauf startet bei 10 €.
+- **Neues Rennen starten:** https://github.com/ftp2y8tcgy-max/Rich/actions/workflows/krypto-bot.yml → **Run workflow** → Haken bei „Rennen neu starten“ → **Run workflow**. Alle Depots starten wieder bei 10 €, das Rennen bekommt die nächste Nummer. `verlauf.csv` behält die alten Rennen.
 - **Schlüssel ersetzen:** In Schritt 3 das Secret `LLM_API_KEY` bearbeiten. Den alten Schlüssel bei Groq löschen.
