@@ -6,16 +6,15 @@
 
 Die 11 Skills des Pakets (`/trader-scanner`, `/trader-entry`, `/trader-timemachine` …) sind unter `.claude/skills/` installiert.
 
-## Krypto-Wettrennen (Spielgeld)
+## Krypto-Scanner (Papiergeld, Kraken-Regeln)
 
-Vier Strategien starten mit je 10 € Spielgeld und handeln stündlich BTC, ETH und SOL. Ziel: schnellstmöglich 1.000 €. Darunter sind zwei Regel-Strategien, ein KI-Händler und als Vergleich „BTC kaufen und halten“. Kein echtes Geld, kein Börsenkonto.
+Beobachtet alle liquiden Kraken-Coins in Euro (bis zu 40), testet jede Stunde sieben Strategien auf den letzten 14 Tagen mit echten Kraken-Kosten und handelt mit der besten. Gehalten wird höchstens ein Coin; ist keine Strategie besser als BTC-Halten oder Bargeld, bleibt er draußen. Läuft alle 5 Minuten auf GitHub. Kein echtes Geld; eine Ampel zeigt, ob die Kriterien für Echtgeld je erfüllt sind.
 
-- **Stand:** [KRYPTO-REPORT.md](https://github.com/ftp2y8tcgy-max/Rich/blob/krypto-daten/KRYPTO-REPORT.md) (nach jedem Lauf aktualisiert)
-- **Einmalige Einrichtung:** [EINRICHTUNG-KRYPTO.md](EINRICHTUNG-KRYPTO.md)
-- **Regeln:** [krypto/STRATEGIEN.md](krypto/STRATEGIEN.md)
-- **Code:** `krypto/`, Tests: `python3 -m unittest discover -s tests_krypto -v`, Zeitplan: `.github/workflows/krypto-bot.yml`
+- **Stand:** [KRYPTO-REPORT.md](https://github.com/ftp2y8tcgy-max/Rich/blob/krypto-daten/KRYPTO-REPORT.md)
+- **Bedienung:** [EINRICHTUNG-KRYPTO.md](EINRICHTUNG-KRYPTO.md) · **Regeln:** [krypto/STRATEGIEN.md](krypto/STRATEGIEN.md)
+- **Code:** `krypto/`, Tests: `python3 -m unittest discover -s tests_krypto -t .`, Zeitplan: `.github/workflows/krypto-scanner.yml`
 
-Ehrlich: Das Hundertfache in kurzer Zeit ist ohne Hebel kaum erreichbar. Am wahrscheinlichsten enden die meisten Strategien unter 10 €. Der Bericht zeigt, was tatsächlich passiert.
+Ehrlich: Die meisten Krypto-Bots von Privatleuten schneiden nach Gebühren schlechter ab als Bitcoin zu halten. Der Bericht zeigt, ob dieser es besser macht.
 
 ## Werkzeuge
 

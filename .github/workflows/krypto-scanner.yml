@@ -1,0 +1,39 @@
+name: Krypto-Scanner
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # alle 5 Minuten (GitHub startet geplante Läufe oft verspätet)
+  workflow_dispatch:
+    inputs:
+      neues_depot:
+        description: "Neues Papierdepot mit Startkapital (Kursdaten bleiben)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krypto-scanner
+  cancel-in-progress: false
+
+jobs:
+  lauf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests
+        run: python3 -m unittest discover -s tests_krypto -t .
+
+      - name: Zustand vom Daten-Branch laden
+        run: bash krypto/veroeffentlichen.sh laden
+
+      - name: Lauf
+        env:
+          STARTKAPITAL: ${{ vars.STARTKAPITAL }}
+        run: python3 -m krypto.lauf --daten daten ${{ inputs.neues_depot && '--neu' || '' }}
+
+      - name: Zustand und Bericht veröffentlichen
+        run: bash krypto/veroeffentlichen.sh veroeffentlichen

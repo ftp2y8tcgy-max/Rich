@@ -1,1 +1,1 @@
-"""Krypto-Wettrennen mit Spielgeld: mehrere Strategien, je 10 €, Ziel 1.000 €."""
+"""Krypto-Scanner: beobachtet alle liquiden Kraken-Coins in Euro und handelt mit Papiergeld nach Kraken-Regeln."""
