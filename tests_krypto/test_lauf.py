@@ -78,6 +78,22 @@ class LaufTest(unittest.TestCase):
             b = f.read()
         self.assertIn("pleite am 25.11.2026 13:00", b)
 
+    def test_neues_rennen(self):
+        self.lauf(kurse(60), "2026-11-25T10:00:00+00:00")
+        self.lauf(kurse(61), "2026-11-25T11:00:00+00:00")
+        with open(self.kursdatei, "w") as f:
+            json.dump(kurse(62), f)
+        lauf.main(["--daten", self.daten, "--kurse-datei", self.kursdatei, "--zeit", "2026-11-25T12:00:00+00:00", "--neues-rennen"],
+                  ki_client=ki_antwort("ENTSCHEIDUNG: halten"))
+        z = self.zustand()
+        self.assertEqual(z["rennen"], 2)
+        self.assertEqual(z["start"], "2026-11-25T12:00:00+00:00")
+        self.assertEqual(z["depots"]["KI-Händler"]["orders"], 0)
+        self.assertEqual(z["depots"]["KI-Händler"]["ki_ausfaelle"], 0)
+        self.assertEqual(z["depots"]["BTC halten (Vergleich)"]["orders"], 1)
+        with open(os.path.join(self.daten, "verlauf.csv")) as f:
+            self.assertTrue(f.read().strip().splitlines()[-1].split(",")[1] == "2")
+
     def test_kursfehler_aendert_nichts(self):
         self.lauf(kurse(60), "2026-11-25T10:00:00+00:00")
         vorher = {n: open(os.path.join(self.daten, n)).read() for n in os.listdir(self.daten)}
