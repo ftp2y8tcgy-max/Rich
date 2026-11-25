@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07070a">
+<title>Day-Trader-Rennen</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="hintergrund" aria-hidden="true"></div>
+
+<aside class="seitenleiste">
+  <div class="logo" title="Day-Trader-Rennen">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 35 11v18L20 37 5 29V11z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 25l5-6 4 4 7-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+  <nav>
+    <a href="#oben" class="aktiv" title="Übersicht"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg></a>
+    <a href="#bots" title="Bots"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></a>
+    <a href="#trades" title="Trades"><svg viewBox="0 0 24 24"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8"/></svg></a>
+    <a href="#markt" title="Markt"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/></svg></a>
+  </nav>
+  <a class="unten" href="https://github.com/Jakeschincariol/day-trader-skill" target="_blank" rel="noopener" title="Regeln: day-trader-skill"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></a>
+</aside>
+
+<main id="oben">
+  <header class="kopf">
+    <div>
+      <h1>Day-Trader-Rennen <span class="winken">⚡</span></h1>
+      <p class="unterzeile">25 Bots · je 10 € · Ziel 1.000 € · Regeln aus <b>day-trader-skill</b> · Spielgeld</p>
+    </div>
+    <div class="kopf-rechts">
+      <div class="pille" id="tag-pille" title="Handelstag">
+        <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+        <span id="tag-text">–</span>
+      </div>
+      <div class="steuerung">
+        <button class="knopf gold" data-aktion="start" title="Alle starten">▶<span> Start</span></button>
+        <button class="knopf" data-aktion="pause" title="Alle pausieren">❚❚<span> Pause</span></button>
+        <button class="knopf" data-aktion="stop" title="Alle stoppen">■<span> Stopp</span></button>
+        <button class="knopf" data-aktion="reset" title="Alle auf 10 € zurücksetzen">↺<span> Reset</span></button>
+      </div>
+      <label class="tempo" title="Geschwindigkeit: Kerzen pro Sekunde">
+        <span>Tempo</span>
+        <input type="range" id="tempo" min="0" max="100" value="45">
+        <output id="tempo-wert">40/s</output>
+      </label>
+    </div>
+  </header>
+
+  <section class="kpis">
+    <article class="kpi"><div class="kpi-icon">€</div><div><p>Gesamtkapital</p><h3 id="k-gesamt">–</h3><small id="k-gesamt-d">–</small></div></article>
+    <article class="kpi"><div class="kpi-icon">▲</div><div><p>Bester Bot</p><h3 id="k-bester">–</h3><small id="k-bester-d">–</small></div></article>
+    <article class="kpi"><div class="kpi-icon">▼</div><div><p>Schlechtester Bot</p><h3 id="k-schlecht">–</h3><small id="k-schlecht-d">–</small></div></article>
+    <article class="kpi"><div class="kpi-icon">🏆</div><div><p>Ziel erreicht</p><h3 id="k-ziel">–</h3><small>von 25 Bots</small></div></article>
+    <article class="kpi"><div class="kpi-icon">✕</div><div><p>Pleite</p><h3 id="k-pleite">–</h3><small>Wallet leer</small></div></article>
+    <article class="kpi"><div class="kpi-icon">◷</div><div><p>Laufzeit</p><h3 id="k-zeit">–</h3><small id="k-offen">–</small></div></article>
+  </section>
+
+  <section class="reihe2">
+    <article class="karte verlauf">
+      <div class="karten-kopf">
+        <div><h2>Kontoverlauf</h2><p class="gross" id="v-wert">–</p><small id="v-sub">–</small></div>
+        <div class="tabs" id="v-tabs">
+          <button data-ansicht="alle" class="an">Alle Bots</button>
+          <button data-ansicht="gesamt">Gesamt</button>
+        </div>
+      </div>
+      <svg id="chart-verlauf" class="chart" preserveAspectRatio="none"></svg>
+      <div class="legende"><span><i class="punkt gold"></i>ausgewählter Bot</span><span><i class="strich"></i>Ziel 1.000 €</span><span>log. Skala · ein Punkt pro Handelstag</span></div>
+    </article>
+
+    <article class="karte hud" id="markt">
+      <i class="ecke lo"></i><i class="ecke ro"></i><i class="ecke lu"></i><i class="ecke ru"></i>
+      <div class="hud-kopf"><span>NYSE · NEW YORK</span><span id="hud-quelle">–</span></div>
+      <canvas id="globus" aria-label="Weltkugel mit New York Stock Exchange"></canvas>
+      <div class="hud-uhr"><div id="hud-zeit">09:30</div><div id="hud-tag">–</div></div>
+      <div class="hud-fuss" id="hud-fuss"></div>
+    </article>
+
+    <article class="karte rangliste">
+      <div class="karten-kopf"><h2>Rangliste</h2><small>Top 5 nach Kontostand</small></div>
+      <ol id="rangliste"></ol>
+      <div class="karten-kopf klein"><h2>Ø pro Regelprofil</h2></div>
+      <svg id="chart-profile" class="chart klein" preserveAspectRatio="none"></svg>
+    </article>
+  </section>
+
+  <section class="karte bots" id="bots">
+    <div class="karten-kopf">
+      <div><h2>Die 25 Bots</h2><small>Antippen hebt die Linie hervor · ⤢ öffnet die Details · Balken logarithmisch 10 € → 1.000 €</small></div>
+      <div class="farblegende"><span class="plus">im Plus</span><span class="minus">im Minus</span><span class="ziel">1.000 €</span><span class="leer">leer</span></div>
+    </div>
+    <div class="raster" id="raster"></div>
+  </section>
+
+  <section class="reihe4" id="trades">
+    <article class="karte trades">
+      <div class="karten-kopf"><h2>Letzte Trades</h2></div>
+      <ul id="trade-liste"></ul>
+    </article>
+    <article class="karte log hud-rahmen">
+      <i class="ecke lo"></i><i class="ecke ro"></i><i class="ecke lu"></i><i class="ecke ru"></i>
+      <div class="karten-kopf"><h2>Ereignisse</h2><small id="log-zahl">–</small></div>
+      <div id="log"></div>
+    </article>
+    <article class="karte donut-karte">
+      <div class="karten-kopf"><h2>Kapital nach Aktie</h2></div>
+      <div class="donut-wrap"><svg id="chart-donut" viewBox="0 0 200 200"></svg><ul id="donut-legende"></ul></div>
+    </article>
+  </section>
+
+  <footer class="laufband">
+    <div id="laufband"></div>
+    <p>Spielgeld-Simulation. Keine Anlageberatung. Echte Kerzen von Yahoo (60 Tage), danach simulierte Tage nach Art der Time Machine. Bruchstück-Aktien, kein Hebel, Wechselkurs nicht berücksichtigt.</p>
+  </footer>
+</main>
+
+<dialog id="detail">
+  <div class="detail-kopf">
+    <div><h2 id="d-titel">Bot</h2><p id="d-sub">–</p></div>
+    <div class="detail-knoepfe"><button class="knopf gold" id="d-umschalten">❚❚ Pause</button><button class="knopf" id="d-zu" aria-label="Schließen">✕</button></div>
+  </div>
+  <div class="detail-zahlen" id="d-zahlen"></div>
+  <div class="detail-charts">
+    <div><h3 id="d-kerzen-titel">Heute</h3><svg id="d-kerzen" class="chart" preserveAspectRatio="none"></svg></div>
+    <div><h3>Kontostand</h3><svg id="d-konto" class="chart" preserveAspectRatio="none"></svg></div>
+  </div>
+  <h3>Trade-Historie</h3>
+  <div class="tabelle-wrap"><table><thead><tr><th>Tag</th><th>Zeit</th><th>Aktie</th><th>Menge</th><th>Einstieg</th><th>Ausstieg</th><th>Grund</th><th>R</th><th>Ergebnis</th></tr></thead><tbody id="d-trades"></tbody></table></div>
+</dialog>
+
+<div id="toast" role="status"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

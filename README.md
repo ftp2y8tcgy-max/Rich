@@ -1,5 +1,11 @@
 # Rich
 
+## Day-Trader-Rennen (Web-Dashboard)
+
+25 Bots mit je 10 € Spielgeld handeln US-Aktien nach den Regeln aus [day-trader-skill](https://github.com/Jakeschincariol/day-trader-skill), Ziel 1.000 €. Start: `python3 dashboard/start.py --autostart`, dann `http://localhost:8765` (auch vom iPad im WLAN). Details: [dashboard/README.md](dashboard/README.md).
+
+Die 11 Skills des Pakets (`/trader-scanner`, `/trader-entry`, `/trader-timemachine` …) sind unter `.claude/skills/` installiert.
+
 ## Krypto-Wettrennen (Spielgeld)
 
 Vier Strategien starten mit je 10 € Spielgeld und handeln stündlich BTC, ETH und SOL. Ziel: schnellstmöglich 1.000 €. Darunter sind zwei Regel-Strategien, ein KI-Händler und als Vergleich „BTC kaufen und halten“. Kein echtes Geld, kein Börsenkonto.
