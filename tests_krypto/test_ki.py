@@ -75,6 +75,27 @@ class KiTest(unittest.TestCase):
         self.assertNotIn(geheim, repr(self.dep))
         self.assertEqual(self.dep["ki_ausfaelle"], 1)
 
+    def test_http_client_setzt_user_agent(self):
+        gesendet = {}
+
+        class Antwort:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b'{"choices": [{"message": {"content": "ENTSCHEIDUNG: halten"}}]}'
+
+        def urlopen(anfrage, timeout):
+            gesendet["ua"] = anfrage.get_header("User-agent")
+            return Antwort()
+
+        with mock.patch.dict(os.environ, {"LLM_API_KEY": "test"}), mock.patch("urllib.request.urlopen", urlopen):
+            self.assertEqual(ki.http_client([]), "ENTSCHEIDUNG: halten")
+        self.assertTrue(gesendet["ua"].startswith("krypto-wettrennen"))
+
     def test_eingabe_enthaelt_kennzahlen(self):
         text = ki.eingabe(kurse(), self.dep)
         for teil in ["BTC:", "ETH:", "SOL:", "24h", "48h-Schnitt", "Bargeld"]:

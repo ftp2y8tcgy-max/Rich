@@ -86,7 +86,12 @@ def http_client(nachrichten):
     anfrage = urllib.request.Request(
         basis.rstrip("/") + "/chat/completions",
         data=daten,
-        headers={"Authorization": f"Bearer {schluessel}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {schluessel}",
+            "Content-Type": "application/json",
+            # Cloudflare vor Groq sperrt den Standard-User-Agent von urllib (HTTP 403, error code 1010).
+            "User-Agent": "krypto-wettrennen/1.0",
+        },
     )
     with urllib.request.urlopen(anfrage, timeout=ZEITLIMIT) as antwort:
         return json.load(antwort)["choices"][0]["message"]["content"]
